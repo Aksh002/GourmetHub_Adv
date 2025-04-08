@@ -11,38 +11,51 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background: linear-gradient(to bottom, hsl(220, 40%, 2%), hsl(224, 30%, 10%));
+    background: linear-gradient(to bottom, hsl(225, 40%, 3%), hsl(225, 35%, 8%));
     min-height: 100vh;
   }
 
   :root {
-    --background: 222 47% 6%;
+    /* Base colors */
+    --background: 225 47% 4%;
     --foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --popover: 222 47% 5%;
+    
+    /* UI component colors */
+    --muted: 225 33% 17%;
+    --muted-foreground: 215 20% 75%;
+    --popover: 225 47% 4%;
     --popover-foreground: 210 40% 98%;
-    --card: 222 47% 8%;
+    --card: 225 47% 6%;
     --card-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 18%;
-    --primary: 214 84% 56%;
+    --border: 225 33% 18%;
+    --input: 225 33% 15%;
+    
+    /* Primary color: Royal Blue */
+    --primary: 225 85% 60%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 217 33% 20%;
+    
+    /* Secondary color: Darker blue */
+    --secondary: 230 60% 25%;
     --secondary-foreground: 210 40% 98%;
-    --accent: 214 84% 20%;
+    
+    /* Accent color: Lighter blue */
+    --accent: 220 95% 65%;
     --accent-foreground: 210 40% 98%;
+    
+    /* Destructive color */
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --ring: 214 84% 56%;
+    
+    /* Focus ring */
+    --ring: 225 85% 60%;
     --radius: 0.75rem;
     
-    /* Chart colors */
-    --chart-1: 214 84% 56%;
-    --chart-2: 250 84% 56%;
-    --chart-3: 180 84% 56%;
-    --chart-4: 140 84% 56%;
-    --chart-5: 300 84% 56%;
+    /* Chart colors - all in the blue spectrum */
+    --chart-1: 225 85% 60%;  /* Royal blue */
+    --chart-2: 240 85% 60%;  /* Blue */
+    --chart-3: 210 85% 60%;  /* Azure */
+    --chart-4: 195 85% 60%;  /* Cyan-blue */
+    --chart-5: 255 85% 60%;  /* Violet-blue */
   }
 }
 
@@ -59,27 +72,35 @@
     font-family: 'Inter', sans-serif;
   }
   
-  /* Glossy effect for cards */
+  /* Enhanced glossy effect for cards with blue glow */
   .glossy {
-    background: rgba(16, 24, 39, 0.8);
+    background: rgba(13, 18, 30, 0.8);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(66, 153, 225, 0.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 
-                inset 0 1px 1px rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(65, 105, 225, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 
+                inset 0 1px 1px rgba(255, 255, 255, 0.07),
+                0 0 15px rgba(65, 105, 225, 0.2);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .glossy:hover {
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4), 
+                inset 0 1px 1px rgba(255, 255, 255, 0.07),
+                0 0 20px rgba(65, 105, 225, 0.3);
   }
   
   /* Starry background animation */
   .stars-bg {
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgba(150, 180, 255, 0.1) 1px, transparent 1px);
     background-size: 50px 50px;
   }
   
-  /* Gradient text */
+  /* Royal blue gradient text */
   .text-gradient {
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-image: linear-gradient(to right, #4299e1, #7e22ce);
+    background-image: linear-gradient(to right, hsl(225, 85%, 65%), hsl(240, 80%, 60%));
   }
   
   /* Custom button glow effect */
@@ -96,7 +117,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(45deg, rgba(66, 153, 225, 0.5), rgba(126, 34, 206, 0.5));
+    background: linear-gradient(45deg, rgba(65, 105, 225, 0.6), rgba(100, 90, 255, 0.6));
     filter: blur(15px);
     z-index: -1;
     opacity: 0;
@@ -105,5 +126,42 @@
   
   .btn-glow:hover::after {
     opacity: 1;
+  }
+  
+  /* Card with royal blue glow */
+  .card-glow {
+    position: relative;
+    box-shadow: 0 0 10px rgba(65, 105, 225, 0.15);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .card-glow:hover {
+    box-shadow: 0 0 20px rgba(65, 105, 225, 0.3);
+  }
+  
+  /* High contrast text for better readability */
+  .high-contrast-text {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+  
+  /* Gradient border */
+  .gradient-border {
+    position: relative;
+    border-radius: var(--radius);
+  }
+  
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px; 
+    background: linear-gradient(to right, hsl(225, 85%, 65%), hsl(240, 80%, 60%));
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
 }

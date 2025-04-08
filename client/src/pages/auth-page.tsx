@@ -105,9 +105,9 @@ export default function AuthPage() {
       </div>
       
       <div className="container max-w-md px-4">
-        <div className="glossy rounded-3xl p-8 backdrop-blur-md">
+        <div className="glossy gradient-border rounded-3xl p-8 backdrop-blur-md">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold font-space text-gradient mb-2">
+            <h1 className="text-3xl font-bold font-space text-gradient mb-2">
               {isLogin ? 'Welcome back' : 'Create an account'}
             </h1>
             <p className="text-muted-foreground">
@@ -121,16 +121,16 @@ export default function AuthPage() {
           <div className="flex gap-3 mb-4">
             <Button 
               variant="outline" 
-              className="flex-1 flex items-center justify-center gap-2 bg-background/50 hover:bg-background/80"
+              className="flex-1 flex items-center justify-center gap-2 bg-background/50 hover:bg-background/80 card-glow"
             >
-              <FaGoogle className="h-4 w-4" />
+              <FaGoogle className="h-4 w-4 text-accent" />
               Google
             </Button>
             <Button 
               variant="outline" 
-              className="flex-1 flex items-center justify-center gap-2 bg-background/50 hover:bg-background/80"
+              className="flex-1 flex items-center justify-center gap-2 bg-background/50 hover:bg-background/80 card-glow"
             >
-              <FaFacebook className="h-4 w-4" />
+              <FaFacebook className="h-4 w-4 text-accent" />
               Facebook
             </Button>
           </div>
@@ -204,7 +204,7 @@ export default function AuthPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full h-12 mt-6 text-base btn-glow font-medium"
+                  className="w-full h-12 mt-6 text-base btn-glow font-medium card-glow"
                   disabled={loginMutation.isPending}
                 >
                   {loginMutation.isPending ? (
@@ -343,7 +343,7 @@ export default function AuthPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full h-12 mt-6 text-base btn-glow font-medium"
+                  className="w-full h-12 mt-6 text-base btn-glow font-medium card-glow"
                   disabled={registerMutation.isPending}
                 >
                   {registerMutation.isPending ? (
