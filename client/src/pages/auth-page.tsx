@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Mail, Lock, User, UserPlus, LogIn } from "lucide-react";
 import { FaGoogle, FaFacebook } from "react-icons/fa";
+import { useAuth } from "@/hooks/use-auth";
 
 // Login form schema
 const loginFormSchema = z.object({
@@ -40,10 +41,20 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Temporary mock for debugging - will replace with actual auth later
-  const user: { role?: string } | null = null;
-  const loginMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
-  const registerMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
+  // Fall back to empty values if not in auth context for debugging
+  let user = null;
+  let loginMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
+  let registerMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
+  
+  try {
+    const auth = useAuth();
+    user = auth.user;
+    loginMutation = auth.loginMutation;
+    registerMutation = auth.registerMutation;
+  } catch (error) {
+    console.error("Auth context error:", error);
+  }
+  
   const [, navigate] = useLocation();
 
   // Redirect if user is already logged in
