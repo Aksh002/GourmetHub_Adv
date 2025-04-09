@@ -9,7 +9,11 @@ import {
   insertOrderSchema, 
   insertPaymentSchema, 
   insertTableSchema, 
-  updateOrderStatusSchema
+  updateOrderStatusSchema,
+  insertRestaurantSchema,
+  insertOperatingHoursSchema,
+  insertFloorPlanSchema,
+  insertTableConfigSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 
@@ -556,6 +560,270 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch admin stats" });
+    }
+  });
+
+  // Restaurant Setup API
+  app.get("/api/restaurant", async (req, res) => {
+    try {
+      const restaurant = await storage.getDefaultRestaurant();
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant configuration not found" });
+      }
+      res.json(restaurant);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch restaurant configuration" });
+    }
+  });
+
+  app.get("/api/restaurant/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const restaurant = await storage.getRestaurant(id);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      res.json(restaurant);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch restaurant" });
+    }
+  });
+
+  app.get("/api/restaurant/:id/details", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const restaurant = await storage.getRestaurantWithDetails(id);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      res.json(restaurant);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch restaurant details" });
+    }
+  });
+
+  app.post("/api/restaurant", requireAdmin, validateRequest(insertRestaurantSchema, 'body'), async (req, res) => {
+    try {
+      const newRestaurant = await storage.createRestaurant(req.body);
+      res.status(201).json(newRestaurant);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create restaurant" });
+    }
+  });
+
+  app.put("/api/restaurant/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedRestaurant = await storage.updateRestaurant(id, req.body);
+      if (!updatedRestaurant) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      res.json(updatedRestaurant);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update restaurant" });
+    }
+  });
+
+  // Operating Hours API
+  app.get("/api/operating-hours/restaurant/:restaurantId", async (req, res) => {
+    try {
+      const restaurantId = parseInt(req.params.restaurantId);
+      const hours = await storage.getOperatingHoursByRestaurant(restaurantId);
+      res.json(hours);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch operating hours" });
+    }
+  });
+
+  app.get("/api/operating-hours/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const hours = await storage.getOperatingHours(id);
+      if (!hours) {
+        return res.status(404).json({ message: "Operating hours not found" });
+      }
+      res.json(hours);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch operating hours" });
+    }
+  });
+
+  app.post("/api/operating-hours", requireAdmin, validateRequest(insertOperatingHoursSchema, 'body'), async (req, res) => {
+    try {
+      const newHours = await storage.createOperatingHours(req.body);
+      res.status(201).json(newHours);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create operating hours" });
+    }
+  });
+
+  app.put("/api/operating-hours/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedHours = await storage.updateOperatingHours(id, req.body);
+      if (!updatedHours) {
+        return res.status(404).json({ message: "Operating hours not found" });
+      }
+      res.json(updatedHours);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update operating hours" });
+    }
+  });
+
+  app.delete("/api/operating-hours/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteOperatingHours(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Operating hours not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete operating hours" });
+    }
+  });
+
+  // Floor Plan API
+  app.get("/api/floor-plans/restaurant/:restaurantId", async (req, res) => {
+    try {
+      const restaurantId = parseInt(req.params.restaurantId);
+      const floorPlans = await storage.getFloorPlansByRestaurant(restaurantId);
+      res.json(floorPlans);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch floor plans" });
+    }
+  });
+
+  app.get("/api/floor-plans/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const floorPlan = await storage.getFloorPlan(id);
+      if (!floorPlan) {
+        return res.status(404).json({ message: "Floor plan not found" });
+      }
+      res.json(floorPlan);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch floor plan" });
+    }
+  });
+
+  app.get("/api/floor-plans/:id/with-tables", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const floorPlan = await storage.getFloorPlanWithTables(id);
+      if (!floorPlan) {
+        return res.status(404).json({ message: "Floor plan not found" });
+      }
+      res.json(floorPlan);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch floor plan with tables" });
+    }
+  });
+
+  app.post("/api/floor-plans", requireAdmin, validateRequest(insertFloorPlanSchema, 'body'), async (req, res) => {
+    try {
+      const newFloorPlan = await storage.createFloorPlan(req.body);
+      res.status(201).json(newFloorPlan);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create floor plan" });
+    }
+  });
+
+  app.put("/api/floor-plans/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedFloorPlan = await storage.updateFloorPlan(id, req.body);
+      if (!updatedFloorPlan) {
+        return res.status(404).json({ message: "Floor plan not found" });
+      }
+      res.json(updatedFloorPlan);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update floor plan" });
+    }
+  });
+
+  app.delete("/api/floor-plans/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteFloorPlan(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Floor plan not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete floor plan" });
+    }
+  });
+
+  // Table Config API
+  app.get("/api/table-configs/floor-plan/:floorPlanId", async (req, res) => {
+    try {
+      const floorPlanId = parseInt(req.params.floorPlanId);
+      const tableConfigs = await storage.getTableConfigsByFloorPlan(floorPlanId);
+      res.json(tableConfigs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch table configurations" });
+    }
+  });
+
+  app.get("/api/table-configs/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const tableConfig = await storage.getTableConfig(id);
+      if (!tableConfig) {
+        return res.status(404).json({ message: "Table configuration not found" });
+      }
+      res.json(tableConfig);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch table configuration" });
+    }
+  });
+
+  app.get("/api/tables/:id/config", async (req, res) => {
+    try {
+      const tableId = parseInt(req.params.id);
+      const tableWithConfig = await storage.getTableWithConfig(tableId);
+      if (!tableWithConfig) {
+        return res.status(404).json({ message: "Table with configuration not found" });
+      }
+      res.json(tableWithConfig);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch table with configuration" });
+    }
+  });
+
+  app.post("/api/table-configs", requireAdmin, validateRequest(insertTableConfigSchema, 'body'), async (req, res) => {
+    try {
+      const newTableConfig = await storage.createTableConfig(req.body);
+      res.status(201).json(newTableConfig);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create table configuration" });
+    }
+  });
+
+  app.put("/api/table-configs/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedTableConfig = await storage.updateTableConfig(id, req.body);
+      if (!updatedTableConfig) {
+        return res.status(404).json({ message: "Table configuration not found" });
+      }
+      res.json(updatedTableConfig);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update table configuration" });
+    }
+  });
+
+  app.delete("/api/table-configs/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteTableConfig(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Table configuration not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete table configuration" });
     }
   });
 

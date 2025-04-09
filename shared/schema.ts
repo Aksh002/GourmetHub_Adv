@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -78,6 +78,58 @@ export const payments = pgTable("payments", {
   paidAt: timestamp("paid_at")
 });
 
+// Restaurant Setup models
+export const restaurants = pgTable("restaurants", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  address: text("address").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email"),
+  website: text("website"),
+  logo: text("logo"),
+  currency: text("currency").notNull().default("USD"),
+  isConfigured: boolean("is_configured").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+
+// Operating Hours model
+export const operatingHours = pgTable("operating_hours", {
+  id: serial("id").primaryKey(),
+  restaurantId: integer("restaurant_id").references(() => restaurants.id).notNull(),
+  dayOfWeek: integer("day_of_week").notNull(), // 0 = Sunday, 1 = Monday, etc.
+  openTime: text("open_time").notNull(),  // Format: HH:MM in 24-hour format
+  closeTime: text("close_time").notNull(), // Format: HH:MM in 24-hour format
+  isClosed: boolean("is_closed").notNull().default(false)
+});
+
+// Floor Plan model
+export const floorPlans = pgTable("floor_plans", {
+  id: serial("id").primaryKey(),
+  restaurantId: integer("restaurant_id").references(() => restaurants.id).notNull(),
+  floorNumber: integer("floor_number").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  width: integer("width").notNull(), // dimensions in grid units
+  height: integer("height").notNull(), // dimensions in grid units
+  isActive: boolean("is_active").notNull().default(true)
+});
+
+// Table Config model (extends the basic table model with layout information)
+export const tableConfigs = pgTable("table_configs", {
+  id: serial("id").primaryKey(),
+  tableId: integer("table_id").references(() => tables.id).notNull(),
+  floorPlanId: integer("floor_plan_id").references(() => floorPlans.id).notNull(),
+  xPosition: integer("x_position").notNull(), // grid position x
+  yPosition: integer("y_position").notNull(), // grid position y
+  width: integer("width").notNull().default(1), // size in grid units
+  height: integer("height").notNull().default(1), // size in grid units
+  shape: text("shape").notNull().default("rectangle"), // rectangle, round, etc.
+  seats: integer("seats").notNull().default(4),
+  isActive: boolean("is_active").notNull().default(true)
+});
+
 // Zod schemas for validating data
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -123,6 +175,49 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
   paymentUrl: true
 });
 
+// Restaurant setup schemas
+export const insertRestaurantSchema = createInsertSchema(restaurants).pick({
+  name: true,
+  description: true,
+  address: true,
+  phone: true,
+  email: true,
+  website: true,
+  logo: true,
+  currency: true,
+  isConfigured: true
+});
+
+export const insertOperatingHoursSchema = createInsertSchema(operatingHours).pick({
+  restaurantId: true,
+  dayOfWeek: true,
+  openTime: true,
+  closeTime: true,
+  isClosed: true
+});
+
+export const insertFloorPlanSchema = createInsertSchema(floorPlans).pick({
+  restaurantId: true,
+  floorNumber: true,
+  name: true,
+  description: true,
+  width: true,
+  height: true,
+  isActive: true
+});
+
+export const insertTableConfigSchema = createInsertSchema(tableConfigs).pick({
+  tableId: true,
+  floorPlanId: true,
+  xPosition: true,
+  yPosition: true,
+  width: true,
+  height: true,
+  shape: true,
+  seats: true,
+  isActive: true
+});
+
 // Cart item type
 export const cartItemSchema = z.object({
   menuItemId: z.number(),
@@ -137,20 +232,37 @@ export const updateOrderStatusSchema = z.object({
 });
 
 // Types
+// Base entity types
 export type User = typeof users.$inferSelect;
 export type Table = typeof tables.$inferSelect;
 export type MenuItem = typeof menuItems.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type Restaurant = typeof restaurants.$inferSelect;
+export type OperatingHours = typeof operatingHours.$inferSelect;
+export type FloorPlan = typeof floorPlans.$inferSelect;
+export type TableConfig = typeof tableConfigs.$inferSelect;
 
+// Insert types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTable = z.infer<typeof insertTableSchema>;
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
+export type InsertOperatingHours = z.infer<typeof insertOperatingHoursSchema>;
+export type InsertFloorPlan = z.infer<typeof insertFloorPlanSchema>;
+export type InsertTableConfig = z.infer<typeof insertTableConfigSchema>;
 
+// Extended and combined types
 export type CartItem = z.infer<typeof cartItemSchema>;
 export type OrderWithItems = Order & { items: (OrderItem & { menuItem: MenuItem })[] };
 export type TableWithOrder = Table & { order?: OrderWithItems };
+export type TableWithConfig = Table & { config: TableConfig };
+export type FloorPlanWithTables = FloorPlan & { tables: TableWithConfig[] };
+export type RestaurantWithDetails = Restaurant & { 
+  operatingHours: OperatingHours[],
+  floorPlans: FloorPlanWithTables[]
+};

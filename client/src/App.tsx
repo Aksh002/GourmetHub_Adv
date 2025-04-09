@@ -15,6 +15,7 @@ import DashboardPage from "@/pages/admin/dashboard-page";
 import MenuPage from "@/pages/admin/menu-page";
 import OrdersPage from "@/pages/admin/orders-page";
 import TablesPage from "@/pages/admin/tables-page";
+import SetupPage from "@/pages/admin/setup-page";
 
 // Protected routes
 import { ProtectedRoute } from "./lib/protected-route";
@@ -29,6 +30,7 @@ function Router() {
       
       {/* Admin routes - protected */}
       <ProtectedRoute path="/admin" component={DashboardPage} role="admin" />
+      <ProtectedRoute path="/admin/setup" component={SetupPage} role="admin" />
       <ProtectedRoute path="/admin/menu" component={MenuPage} role="admin" />
       <ProtectedRoute path="/admin/orders" component={OrdersPage} role="admin" />
       <ProtectedRoute path="/admin/tables" component={TablesPage} role="admin" />

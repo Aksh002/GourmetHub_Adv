@@ -1,8 +1,12 @@
 import { users, tables, menuItems, orders, orderItems, payments, 
+  restaurants, operatingHours, floorPlans, tableConfigs,
   type User, type InsertUser, type Table, type InsertTable, 
   type MenuItem, type InsertMenuItem, type Order, type InsertOrder,
   type OrderItem, type InsertOrderItem, type Payment, type InsertPayment, 
-  type OrderWithItems, type TableWithOrder } from "@shared/schema";
+  type OrderWithItems, type TableWithOrder, type Restaurant, type InsertRestaurant,
+  type OperatingHours, type InsertOperatingHours, type FloorPlan, type InsertFloorPlan,
+  type TableConfig, type InsertTableConfig, type FloorPlanWithTables,
+  type RestaurantWithDetails, type TableWithConfig } from "@shared/schema";
 import createMemoryStore from "memorystore";
 import session from "express-session";
 
@@ -49,6 +53,37 @@ export interface IStorage {
   getPaymentByOrderId(orderId: number): Promise<Payment | undefined>;
   updatePaymentStatus(id: number, status: string): Promise<Payment | undefined>;
 
+  // Restaurant Setup methods
+  getRestaurant(id: number): Promise<Restaurant | undefined>;
+  getDefaultRestaurant(): Promise<Restaurant | undefined>;
+  createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
+  updateRestaurant(id: number, restaurant: Partial<Restaurant>): Promise<Restaurant | undefined>;
+  getRestaurantWithDetails(id: number): Promise<RestaurantWithDetails | undefined>;
+  
+  // Operating Hours methods
+  getOperatingHours(id: number): Promise<OperatingHours | undefined>;
+  getOperatingHoursByRestaurant(restaurantId: number): Promise<OperatingHours[]>;
+  createOperatingHours(hours: InsertOperatingHours): Promise<OperatingHours>;
+  updateOperatingHours(id: number, hours: Partial<OperatingHours>): Promise<OperatingHours | undefined>;
+  deleteOperatingHours(id: number): Promise<boolean>;
+  
+  // Floor Plan methods
+  getFloorPlan(id: number): Promise<FloorPlan | undefined>;
+  getFloorPlansByRestaurant(restaurantId: number): Promise<FloorPlan[]>;
+  createFloorPlan(floorPlan: InsertFloorPlan): Promise<FloorPlan>;
+  updateFloorPlan(id: number, floorPlan: Partial<FloorPlan>): Promise<FloorPlan | undefined>;
+  deleteFloorPlan(id: number): Promise<boolean>;
+  getFloorPlanWithTables(id: number): Promise<FloorPlanWithTables | undefined>;
+  
+  // Table Config methods
+  getTableConfig(id: number): Promise<TableConfig | undefined>;
+  getTableConfigByTable(tableId: number): Promise<TableConfig | undefined>;
+  getTableConfigsByFloorPlan(floorPlanId: number): Promise<TableConfig[]>;
+  createTableConfig(tableConfig: InsertTableConfig): Promise<TableConfig>;
+  updateTableConfig(id: number, tableConfig: Partial<TableConfig>): Promise<TableConfig | undefined>;
+  deleteTableConfig(id: number): Promise<boolean>;
+  getTableWithConfig(tableId: number): Promise<TableWithConfig | undefined>;
+
   // Session store
   sessionStore: session.Store;
 }
@@ -60,6 +95,10 @@ export class MemStorage implements IStorage {
   private orders: Map<number, Order>;
   private orderItems: Map<number, OrderItem>;
   private payments: Map<number, Payment>;
+  private restaurants: Map<number, Restaurant>;
+  private operatingHours: Map<number, OperatingHours>;
+  private floorPlans: Map<number, FloorPlan>;
+  private tableConfigs: Map<number, TableConfig>;
   sessionStore: session.Store;
   
   private currentUserId: number;
@@ -68,6 +107,10 @@ export class MemStorage implements IStorage {
   private currentOrderId: number;
   private currentOrderItemId: number;
   private currentPaymentId: number;
+  private currentRestaurantId: number;
+  private currentOperatingHoursId: number;
+  private currentFloorPlanId: number;
+  private currentTableConfigId: number;
 
   constructor() {
     this.users = new Map();
@@ -76,6 +119,10 @@ export class MemStorage implements IStorage {
     this.orders = new Map();
     this.orderItems = new Map();
     this.payments = new Map();
+    this.restaurants = new Map();
+    this.operatingHours = new Map();
+    this.floorPlans = new Map();
+    this.tableConfigs = new Map();
     
     this.currentUserId = 1;
     this.currentTableId = 1;
@@ -83,6 +130,10 @@ export class MemStorage implements IStorage {
     this.currentOrderId = 1;
     this.currentOrderItemId = 1;
     this.currentPaymentId = 1;
+    this.currentRestaurantId = 1;
+    this.currentOperatingHoursId = 1;
+    this.currentFloorPlanId = 1;
+    this.currentTableConfigId = 1;
 
     // Setup session store
     const MemoryStore = createMemoryStore(session);
@@ -133,13 +184,79 @@ export class MemStorage implements IStorage {
       role: "customer"
     });
 
+    // Create a default restaurant
+    const restaurant = await this.createRestaurant({
+      name: "Gourmet Fusion",
+      description: "A fine dining experience with a fusion of international cuisines",
+      address: "123 Culinary Street, Flavorville",
+      phone: "+1 (555) 123-4567",
+      email: "contact@gourmetfusion.com",
+      website: "https://gourmetfusion.com",
+      logo: "/logo.png",
+      currency: "USD",
+      isConfigured: false
+    });
+
+    // Create operating hours
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    for (let day = 0; day < 7; day++) {
+      await this.createOperatingHours({
+        restaurantId: restaurant.id,
+        dayOfWeek: day,
+        openTime: day === 0 ? "10:00" : "08:00", // Opens later on Sunday
+        closeTime: day < 5 ? "22:00" : "23:00", // Open later on Friday and Saturday
+        isClosed: day === 0 // Closed on Sunday
+      });
+    }
+
+    // Create floor plans
+    const floor1 = await this.createFloorPlan({
+      restaurantId: restaurant.id,
+      floorNumber: 1,
+      name: "Main Dining",
+      description: "Main dining area on the ground floor",
+      width: 20,
+      height: 15,
+      isActive: true
+    });
+
+    const floor2 = await this.createFloorPlan({
+      restaurantId: restaurant.id,
+      floorNumber: 2,
+      name: "Private Dining",
+      description: "Private dining rooms and event space",
+      width: 15,
+      height: 10,
+      isActive: true
+    });
+
     // Create tables
     for (let floor = 1; floor <= 2; floor++) {
+      const floorPlanId = floor === 1 ? floor1.id : floor2.id;
+      
       for (let tableNum = 1; tableNum <= 12; tableNum++) {
-        this.createTable({
+        // Create basic table
+        const table = await this.createTable({
           tableNumber: tableNum,
           floorNumber: floor,
           qrCodeUrl: `/table/${floor}/${tableNum}`
+        });
+        
+        // Create table configuration
+        // Position tables in a grid pattern with some spacing
+        const row = Math.floor((tableNum - 1) / 4);
+        const col = (tableNum - 1) % 4;
+        
+        await this.createTableConfig({
+          tableId: table.id,
+          floorPlanId: floorPlanId,
+          xPosition: col * 5 + 2, // Space tables horizontally
+          yPosition: row * 5 + 2, // Space tables vertically
+          width: 3, // Table width in grid units
+          height: 3, // Table height in grid units
+          shape: tableNum % 3 === 0 ? "round" : "rectangle", // Mix of table shapes
+          seats: tableNum % 5 === 0 ? 6 : 4, // Mix of table sizes
+          isActive: true
         });
       }
     }
@@ -448,6 +565,233 @@ export class MemStorage implements IStorage {
     };
     this.payments.set(id, updatedPayment);
     return updatedPayment;
+  }
+
+  // Restaurant Setup methods
+  async getRestaurant(id: number): Promise<Restaurant | undefined> {
+    return this.restaurants.get(id);
+  }
+
+  async getDefaultRestaurant(): Promise<Restaurant | undefined> {
+    // Return the first restaurant or the one marked as default if we had that field
+    return Array.from(this.restaurants.values())[0];
+  }
+
+  async createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant> {
+    const id = this.currentRestaurantId++;
+    // Set default values for optional fields
+    const description = restaurant.description || null;
+    const email = restaurant.email || null;
+    const website = restaurant.website || null;
+    const logo = restaurant.logo || null;
+    const currency = restaurant.currency || "USD";
+    const isConfigured = restaurant.isConfigured !== undefined ? restaurant.isConfigured : false;
+    
+    const newRestaurant: Restaurant = {
+      ...restaurant,
+      id,
+      description,
+      email,
+      website,
+      logo,
+      currency,
+      isConfigured,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.restaurants.set(id, newRestaurant);
+    return newRestaurant;
+  }
+
+  async updateRestaurant(id: number, restaurantUpdates: Partial<Restaurant>): Promise<Restaurant | undefined> {
+    const restaurant = await this.getRestaurant(id);
+    if (!restaurant) return undefined;
+
+    const updatedRestaurant = { 
+      ...restaurant, 
+      ...restaurantUpdates,
+      updatedAt: new Date()
+    };
+    this.restaurants.set(id, updatedRestaurant);
+    return updatedRestaurant;
+  }
+
+  async getRestaurantWithDetails(id: number): Promise<RestaurantWithDetails | undefined> {
+    const restaurant = await this.getRestaurant(id);
+    if (!restaurant) return undefined;
+
+    const operatingHours = await this.getOperatingHoursByRestaurant(id);
+    const floorPlans = await Promise.all(
+      (await this.getFloorPlansByRestaurant(id)).map(async plan => {
+        const tableConfigs = await this.getTableConfigsByFloorPlan(plan.id);
+        const tablesWithConfigs = await Promise.all(
+          tableConfigs.map(async config => {
+            const table = await this.getTable(config.tableId);
+            return { ...(table as Table), config };
+          })
+        );
+        return { ...plan, tables: tablesWithConfigs };
+      })
+    );
+
+    return { ...restaurant, operatingHours, floorPlans };
+  }
+
+  // Operating Hours methods
+  async getOperatingHours(id: number): Promise<OperatingHours | undefined> {
+    return this.operatingHours.get(id);
+  }
+
+  async getOperatingHoursByRestaurant(restaurantId: number): Promise<OperatingHours[]> {
+    return Array.from(this.operatingHours.values())
+      .filter(hours => hours.restaurantId === restaurantId)
+      .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+  }
+
+  async createOperatingHours(hours: InsertOperatingHours): Promise<OperatingHours> {
+    const id = this.currentOperatingHoursId++;
+    // Set default values for optional fields
+    const isClosed = hours.isClosed !== undefined ? hours.isClosed : false;
+    
+    const operatingHours: OperatingHours = {
+      ...hours,
+      id,
+      isClosed
+    };
+    
+    this.operatingHours.set(id, operatingHours);
+    return operatingHours;
+  }
+
+  async updateOperatingHours(id: number, hoursUpdates: Partial<OperatingHours>): Promise<OperatingHours | undefined> {
+    const hours = await this.getOperatingHours(id);
+    if (!hours) return undefined;
+
+    const updatedHours = { ...hours, ...hoursUpdates };
+    this.operatingHours.set(id, updatedHours);
+    return updatedHours;
+  }
+
+  async deleteOperatingHours(id: number): Promise<boolean> {
+    return this.operatingHours.delete(id);
+  }
+
+  // Floor Plan methods
+  async getFloorPlan(id: number): Promise<FloorPlan | undefined> {
+    return this.floorPlans.get(id);
+  }
+
+  async getFloorPlansByRestaurant(restaurantId: number): Promise<FloorPlan[]> {
+    return Array.from(this.floorPlans.values())
+      .filter(plan => plan.restaurantId === restaurantId)
+      .sort((a, b) => a.floorNumber - b.floorNumber);
+  }
+
+  async createFloorPlan(floorPlan: InsertFloorPlan): Promise<FloorPlan> {
+    const id = this.currentFloorPlanId++;
+    // Set default values for optional fields
+    const description = floorPlan.description || null;
+    const isActive = floorPlan.isActive !== undefined ? floorPlan.isActive : true;
+    
+    const newFloorPlan: FloorPlan = {
+      ...floorPlan,
+      id,
+      description,
+      isActive
+    };
+    
+    this.floorPlans.set(id, newFloorPlan);
+    return newFloorPlan;
+  }
+
+  async updateFloorPlan(id: number, floorPlanUpdates: Partial<FloorPlan>): Promise<FloorPlan | undefined> {
+    const floorPlan = await this.getFloorPlan(id);
+    if (!floorPlan) return undefined;
+
+    const updatedFloorPlan = { ...floorPlan, ...floorPlanUpdates };
+    this.floorPlans.set(id, updatedFloorPlan);
+    return updatedFloorPlan;
+  }
+
+  async deleteFloorPlan(id: number): Promise<boolean> {
+    return this.floorPlans.delete(id);
+  }
+
+  async getFloorPlanWithTables(id: number): Promise<FloorPlanWithTables | undefined> {
+    const floorPlan = await this.getFloorPlan(id);
+    if (!floorPlan) return undefined;
+
+    const tableConfigs = await this.getTableConfigsByFloorPlan(id);
+    const tablesWithConfigs = await Promise.all(
+      tableConfigs.map(async config => {
+        const table = await this.getTable(config.tableId);
+        return { ...(table as Table), config };
+      })
+    );
+
+    return { ...floorPlan, tables: tablesWithConfigs };
+  }
+
+  // Table Config methods
+  async getTableConfig(id: number): Promise<TableConfig | undefined> {
+    return this.tableConfigs.get(id);
+  }
+
+  async getTableConfigByTable(tableId: number): Promise<TableConfig | undefined> {
+    return Array.from(this.tableConfigs.values())
+      .find(config => config.tableId === tableId);
+  }
+
+  async getTableConfigsByFloorPlan(floorPlanId: number): Promise<TableConfig[]> {
+    return Array.from(this.tableConfigs.values())
+      .filter(config => config.floorPlanId === floorPlanId);
+  }
+
+  async createTableConfig(tableConfig: InsertTableConfig): Promise<TableConfig> {
+    const id = this.currentTableConfigId++;
+    // Set default values for optional fields
+    const width = tableConfig.width !== undefined ? tableConfig.width : 1;
+    const height = tableConfig.height !== undefined ? tableConfig.height : 1;
+    const shape = tableConfig.shape || "rectangle";
+    const seats = tableConfig.seats !== undefined ? tableConfig.seats : 4;
+    const isActive = tableConfig.isActive !== undefined ? tableConfig.isActive : true;
+    
+    const newTableConfig: TableConfig = {
+      ...tableConfig,
+      id,
+      width,
+      height,
+      shape,
+      seats,
+      isActive
+    };
+    
+    this.tableConfigs.set(id, newTableConfig);
+    return newTableConfig;
+  }
+
+  async updateTableConfig(id: number, tableConfigUpdates: Partial<TableConfig>): Promise<TableConfig | undefined> {
+    const tableConfig = await this.getTableConfig(id);
+    if (!tableConfig) return undefined;
+
+    const updatedTableConfig = { ...tableConfig, ...tableConfigUpdates };
+    this.tableConfigs.set(id, updatedTableConfig);
+    return updatedTableConfig;
+  }
+
+  async deleteTableConfig(id: number): Promise<boolean> {
+    return this.tableConfigs.delete(id);
+  }
+
+  async getTableWithConfig(tableId: number): Promise<TableWithConfig | undefined> {
+    const table = await this.getTable(tableId);
+    if (!table) return undefined;
+
+    const tableConfig = await this.getTableConfigByTable(tableId);
+    if (!tableConfig) return undefined;
+
+    return { ...table, config: tableConfig };
   }
 }
 
