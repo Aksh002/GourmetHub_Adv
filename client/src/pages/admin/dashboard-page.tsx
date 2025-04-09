@@ -20,7 +20,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
-  const [activeFloor, setActiveFloor] = useState(1);
+  const [activeFloor, setActiveFloor] = useState("1");
   const [selectedTable, setSelectedTable] = useState<TableWithOrder | null>(null);
   
   // Fetch tables with orders
@@ -61,7 +61,7 @@ export default function DashboardPage() {
 
   // Filter tables by floor
   const tablesForActiveFloor = tablesWithOrders.filter(
-    table => table.floorNumber === activeFloor
+    table => table.floorNumber === parseInt(activeFloor)
   );
   
   // Filter orders by status
@@ -189,9 +189,11 @@ export default function DashboardPage() {
           <div className="bg-white p-4 rounded-lg shadow-sm border mb-4">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4">
               <h2 className="font-poppins font-semibold text-gray-900 mb-2 sm:mb-0">Floor Plan</h2>
-              <TabsList>
-                {floorTabs}
-              </TabsList>
+              <Tabs value={activeFloor} onValueChange={setActiveFloor}>
+                <TabsList>
+                  {floorTabs}
+                </TabsList>
+              </Tabs>
             </div>
             
             <div className="flex flex-wrap text-sm space-x-4 mb-4">
