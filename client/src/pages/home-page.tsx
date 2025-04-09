@@ -6,14 +6,7 @@ import { HandPlatter, ChefHat, QrCode, LogIn, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function HomePage() {
-  // Fall back to null for user if auth context isn't available
-  let user = null;
-  try {
-    const auth = useAuth();
-    user = auth.user;
-  } catch (error) {
-    console.error("Auth context error:", error);
-  }
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">

@@ -12,17 +12,7 @@ export function ProtectedRoute({
   component: () => React.JSX.Element;
   role?: string;
 }) {
-  // Default values for auth state
-  let user = null;
-  let isLoading = false;
-
-  try {
-    const auth = useAuth();
-    user = auth.user;
-    isLoading = auth.isLoading;
-  } catch (error) {
-    console.error("Auth context error in ProtectedRoute:", error);
-  }
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (

@@ -41,20 +41,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Fall back to empty values if not in auth context for debugging
-  let user = null;
-  let loginMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
-  let registerMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
-  
-  try {
-    const auth = useAuth();
-    user = auth.user;
-    loginMutation = auth.loginMutation;
-    registerMutation = auth.registerMutation;
-  } catch (error) {
-    console.error("Auth context error:", error);
-  }
-  
+  const { user, loginMutation, registerMutation } = useAuth();
   const [, navigate] = useLocation();
 
   // Redirect if user is already logged in
