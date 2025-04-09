@@ -481,6 +481,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // In a real app, integrate with actual payment providers based on method
       // For demonstration, we'll simply mark the payment as successful
       
+      // Handle specific payment methods
+      if (method === "google_pay") {
+        console.log("Processing Google Pay payment for order:", orderId);
+        // In a real implementation, we would call Google Pay API here
+      } else if (method === "phonepe") {
+        console.log("Processing PhonePe payment for order:", orderId);
+        // In a real implementation, we would call PhonePe API here
+      }
+      
       // Process payment
       await storage.updatePaymentStatus(payment.id, 'paid');
       

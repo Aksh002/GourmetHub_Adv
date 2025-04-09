@@ -15,6 +15,7 @@ import {
   Check, 
   Loader2 
 } from "lucide-react";
+import { SiGooglepay, SiPhonepe } from "react-icons/si";
 import { OrderWithItems } from "@shared/schema";
 import { formatPrice } from "@/lib/utils";
 
@@ -235,31 +236,31 @@ export default function PaymentGateway({ order, onSuccess }: PaymentGatewayProps
                 
                 <div>
                   <RadioGroupItem
-                    value="cash"
-                    id="cash"
+                    value="google_pay"
+                    id="google_pay"
                     className="peer sr-only"
                   />
                   <Label
-                    htmlFor="cash"
+                    htmlFor="google_pay"
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
                   >
-                    <CircleDollarSign className="mb-3 h-6 w-6" />
-                    Cash On Delivery
+                    <SiGooglepay className="mb-3 h-8 w-8 text-green-600" />
+                    Google Pay
                   </Label>
                 </div>
                 
                 <div>
                   <RadioGroupItem
-                    value="mobile"
-                    id="mobile"
+                    value="phonepe"
+                    id="phonepe"
                     className="peer sr-only"
                   />
                   <Label
-                    htmlFor="mobile"
+                    htmlFor="phonepe"
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
                   >
-                    <Smartphone className="mb-3 h-6 w-6" />
-                    Mobile Payment
+                    <SiPhonepe className="mb-3 h-7 w-7 text-purple-600" />
+                    PhonePe
                   </Label>
                 </div>
               </RadioGroup>
@@ -314,22 +315,54 @@ export default function PaymentGateway({ order, onSuccess }: PaymentGatewayProps
               </div>
             )}
 
-            {paymentMethod === "mobile" && (
+            {paymentMethod === "google_pay" && (
               <div className="space-y-4 py-2 text-center">
-                <div className="bg-purple-50 p-6 rounded-lg">
-                  <Smartphone className="h-12 w-12 text-purple-500 mx-auto mb-3" />
-                  <p className="font-medium text-purple-700">Mobile payment link will be sent to your phone</p>
-                  <p className="text-sm text-purple-600 mt-1">Complete payment securely on your mobile device</p>
+                <div className="bg-green-50 p-6 rounded-lg">
+                  <SiGooglepay className="h-16 w-16 text-green-600 mx-auto mb-3" />
+                  <p className="font-medium text-green-700">Complete your payment with Google Pay</p>
+                  <p className="text-sm text-green-600 mt-1">Fast, secure payments with your Google account</p>
+                  <Button 
+                    className="mt-4 bg-green-600 hover:bg-green-700"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsProcessing(true);
+                      // Simulate Google Pay process
+                      setTimeout(() => {
+                        processPaymentMutation.mutate({
+                          orderId: order.id,
+                          method: "google_pay"
+                        });
+                      }, 1500);
+                    }}
+                  >
+                    Pay with Google Pay
+                  </Button>
                 </div>
               </div>
             )}
 
-            {paymentMethod === "cash" && (
+            {paymentMethod === "phonepe" && (
               <div className="space-y-4 py-2 text-center">
-                <div className="bg-amber-50 p-6 rounded-lg">
-                  <CircleDollarSign className="h-12 w-12 text-amber-500 mx-auto mb-3" />
-                  <p className="font-medium text-amber-700">Pay in cash when your order is served</p>
-                  <p className="text-sm text-amber-600 mt-1">Your server will collect payment at your table</p>
+                <div className="bg-purple-50 p-6 rounded-lg">
+                  <SiPhonepe className="h-14 w-14 text-purple-600 mx-auto mb-3" />
+                  <p className="font-medium text-purple-700">Complete your payment with PhonePe</p>
+                  <p className="text-sm text-purple-600 mt-1">Simple, fast, secure payments via PhonePe</p>
+                  <Button 
+                    className="mt-4 bg-purple-600 hover:bg-purple-700"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsProcessing(true);
+                      // Simulate PhonePe process
+                      setTimeout(() => {
+                        processPaymentMutation.mutate({
+                          orderId: order.id,
+                          method: "phonepe"
+                        });
+                      }, 1500);
+                    }}
+                  >
+                    Pay with PhonePe
+                  </Button>
                 </div>
               </div>
             )}
