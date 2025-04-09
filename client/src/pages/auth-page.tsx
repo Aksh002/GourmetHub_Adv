@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Mail, Lock, User, UserPlus, LogIn } from "lucide-react";
 import { FaGoogle, FaFacebook } from "react-icons/fa";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 // Login form schema
 const loginFormSchema = z.object({
@@ -71,12 +72,23 @@ export default function AuthPage() {
     },
   });
 
+  // Get toast functionality
+  const { toast } = useToast();
+  
   // Form submission handlers
   const onLoginSubmit = (data: LoginFormValues) => {
     loginMutation.mutate(data, {
       onSuccess: () => {
         navigate("/");
       },
+      onError: (error: Error) => {
+        // Show specific error message when user doesn't exist
+        toast({
+          title: "Login failed",
+          description: error.message || "Invalid username or password",
+          variant: "destructive",
+        });
+      }
     });
   };
 
@@ -88,6 +100,13 @@ export default function AuthPage() {
       onSuccess: () => {
         navigate("/");
       },
+      onError: (error: Error) => {
+        toast({
+          title: "Registration failed",
+          description: error.message || "Could not create account",
+          variant: "destructive",
+        });
+      }
     });
   };
 
@@ -155,9 +174,10 @@ export default function AuthPage() {
                           <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                           <Input 
                             {...field} 
-                            placeholder="Email" 
+                            type="text"
+                            placeholder="Username" 
                             className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="email"
+                            autoComplete="username"
                           />
                         </div>
                       </FormControl>
@@ -235,6 +255,7 @@ export default function AuthPage() {
                           <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                           <Input 
                             {...field} 
+                            type="email"
                             placeholder="Email" 
                             className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
                             autoComplete="email"
@@ -256,6 +277,7 @@ export default function AuthPage() {
                           <User className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                           <Input 
                             {...field} 
+                            type="text"
                             placeholder="Full Name" 
                             className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
                             autoComplete="name"
@@ -277,6 +299,7 @@ export default function AuthPage() {
                           <User className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                           <Input 
                             {...field} 
+                            type="text"
                             placeholder="Username" 
                             className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
                             autoComplete="username"
