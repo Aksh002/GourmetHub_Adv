@@ -97,42 +97,37 @@ export class MemStorage implements IStorage {
 
   // Initialize with sample data for development
   private async initializeData() {
-    // These are pre-hashed passwords for 'admin' and 'customer'
-    // In a real app, you would never hard-code hashed passwords
-    const adminHashedPassword = "c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077ec.b2d0f9cadcf60c9ae81bfd37995ec34e";
-    const customerHashedPassword = "91b4d142823f7d20c5f08df69122de43f35f057a988d9619f6d3138485c9a203cd9376827d8af3cc73d18aa8f5aea03a7d220d4a1a18bd8abf0a7ff2d276cf0b.eb33c6f3bb519d028d28147ace3a1707";
-    
-    // Create admin user with pre-hashed password
+    // Create admin user with plaintext password
     this.createUser({
       username: "admin",
-      password: adminHashedPassword,
+      password: "admin", // In a real app, we'd use hashed passwords
       name: "Restaurant Manager",
       email: "admin@restaurant.com",
       role: "admin"
     });
 
-    // Create customer user with pre-hashed password
+    // Create customer user with plaintext password
     this.createUser({
       username: "customer",
-      password: customerHashedPassword,
+      password: "customer", // In a real app, we'd use hashed passwords
       name: "John Customer",
       email: "customer@example.com",
       role: "customer"
     });
     
-    // Alternative accounts with admin@123 and customer@123 usernames
+    // Alternative accounts
     this.createUser({
       username: "admin@123",
-      password: adminHashedPassword,
-      name: "admin",
+      password: "admin@123",
+      name: "Admin User",
       email: "admin@example.com",
       role: "admin"
     });
     
     this.createUser({
       username: "customer@123",
-      password: customerHashedPassword,
-      name: "customer",
+      password: "customer@123",
+      name: "Customer User",
       email: "customer@example.com",
       role: "customer"
     });
