@@ -35,7 +35,10 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Only set true in production
+      sameSite: 'lax'
     }
   };
 
@@ -109,14 +112,27 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
-      if (err) return next(err);
+    // Validate request body
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
+    passport.authenticate("local", (err: Error | null, user: any, info: any) => {
+      if (err) {
+        console.error("Authentication error:", err);
+        return next(err);
+      }
+      
       if (!user) {
         return res.status(401).json({ message: "Invalid username or password" });
       }
       
       req.login(user, (err) => {
-        if (err) return next(err);
+        if (err) {
+          console.error("Login error:", err);
+          return next(err);
+        }
         // Remove password from response
         const { password, ...userWithoutPassword } = user;
         res.status(200).json(userWithoutPassword);
@@ -132,9 +148,22 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) {
+      console.log("User not authenticated - session:", req.session);
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
     // Remove password from response
     const { password, ...userWithoutPassword } = req.user;
     res.json(userWithoutPassword);
+  });
+  
+  // Debug route to check session
+  app.get("/api/session-check", (req, res) => {
+    res.json({
+      sessionID: req.sessionID,
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user ? { id: req.user.id, username: req.user.username } : null
+    });
   });
 }

@@ -16,6 +16,7 @@ import { Eye, EyeOff, Mail, Lock, User, UserPlus, LogIn } from "lucide-react";
 import { FaGoogle, FaFacebook } from "react-icons/fa";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { User as UserType } from "@shared/schema";
 
 // Login form schema
 const loginFormSchema = z.object({
@@ -77,11 +78,22 @@ export default function AuthPage() {
   
   // Form submission handlers
   const onLoginSubmit = (data: LoginFormValues) => {
+    console.log("Login form submitted:", data);
+    
     loginMutation.mutate(data, {
-      onSuccess: () => {
-        navigate("/");
+      onSuccess: (user: UserType) => {
+        console.log("Login successful:", user);
+        
+        // Navigate to appropriate route based on user role
+        if (user.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/customer/menu");
+        }
       },
       onError: (error: Error) => {
+        console.error("Login error:", error);
+        
         // Show specific error message when user doesn't exist
         toast({
           title: "Login failed",
@@ -93,14 +105,24 @@ export default function AuthPage() {
   };
 
   const onRegisterSubmit = (data: RegisterFormValues) => {
+    console.log("Registration form submitted:", data);
+    
     registerMutation.mutate({
       ...data,
       role: "customer", // Default role for new users
     }, {
-      onSuccess: () => {
-        navigate("/");
+      onSuccess: (user: UserType) => {
+        console.log("Registration successful:", user);
+        toast({
+          title: "Registration successful",
+          description: `Welcome, ${user.name}!`,
+        });
+        
+        // Navigate to appropriate route
+        navigate("/customer/menu");
       },
       onError: (error: Error) => {
+        console.error("Registration error:", error);
         toast({
           title: "Registration failed",
           description: error.message || "Could not create account",
