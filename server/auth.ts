@@ -52,15 +52,22 @@ export function setupAuth(app: Express) {
           return done(null, false);
         }
         
-        // Handle the special case for default users
-        if ((username === 'admin' && password === 'admin') || 
-            (username === 'customer' && password === 'customer') || 
-            (username === 'admin@123' && password === 'admin@123') || 
-            (username === 'customer@123' && password === 'customer@123')) {
+        // Handle the special case for default users with plaintext passwords
+        if ((username === 'admin' && password === 'admin' && user.password === 'admin') || 
+            (username === 'customer' && password === 'customer' && user.password === 'customer') || 
+            (username === 'admin@123' && password === 'admin@123' && user.password === 'admin@123') || 
+            (username === 'customer@123' && password === 'customer@123' && user.password === 'customer@123')) {
+          
+          // If this is the first login for a default user with plaintext password,
+          // upgrade their password to a hashed version for future logins
+          const hashedPassword = await hashPassword(password);
+          await storage.updateUserPassword(user.id, hashedPassword);
+          
           return done(null, user);
         }
         
-        // For regular users, use the secure password comparison
+        // For all other users (or default users who have already had their passwords hashed),
+        // use the secure password comparison
         if (await comparePasswords(password, user.password)) {
           return done(null, user);
         }
