@@ -163,7 +163,15 @@ export default function HomePage() {
                     <span>Menu customization and inventory control</span>
                   </li>
                 </ul>
-                <Button asChild size="lg">
+                <Button 
+                  asChild 
+                  size="lg"
+                  onClick={() => {
+                    // Will navigate to /auth but we want to pass state
+                    // indicating that the user wants to register as admin
+                    localStorage.setItem('registerAsAdmin', 'true');
+                  }}
+                >
                   <Link href="/auth">
                     <User className="mr-2 h-5 w-5" />
                     Register as Admin

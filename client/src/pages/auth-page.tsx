@@ -79,13 +79,27 @@ export default function AuthPage() {
     });
   };
 
+  // Check if user clicked "Register as Admin" on the home page
+  const [registerAsAdmin, setRegisterAsAdmin] = useState(() => {
+    // Check localStorage for the flag
+    const registerAsAdminFlag = localStorage.getItem('registerAsAdmin');
+    if (registerAsAdminFlag === 'true') {
+      // Remove the flag from localStorage so it doesn't persist
+      localStorage.removeItem('registerAsAdmin');
+      // Set the active tab to register
+      setTimeout(() => setActiveTab("register"), 0);
+      return true;
+    }
+    return false;
+  });
+  
   const onRegisterSubmit = (data: RegisterFormValues) => {
     registerMutation.mutate({
       ...data,
-      role: "customer", // Default role for new users
+      role: registerAsAdmin ? "admin" : "customer",
     }, {
       onSuccess: () => {
-        navigate("/");
+        navigate(registerAsAdmin ? "/admin" : "/");
       },
     });
   };
@@ -312,6 +326,19 @@ export default function AuthPage() {
                         </FormItem>
                       )}
                     />
+                    
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="registerAsAdmin"
+                        checked={registerAsAdmin}
+                        onChange={(e) => setRegisterAsAdmin(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-600"
+                      />
+                      <label htmlFor="registerAsAdmin" className="text-sm font-medium text-gray-700">
+                        Register as Restaurant Administrator
+                      </label>
+                    </div>
 
                     <Button 
                       type="submit" 

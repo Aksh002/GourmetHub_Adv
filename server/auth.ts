@@ -82,11 +82,8 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      // Only allow admin role if specified by an existing admin
+      // Allow users to register as admin
       let userRole = role;
-      if (role === "admin" && (!req.isAuthenticated() || req.user?.role !== "admin")) {
-        userRole = "customer";
-      }
 
       const user = await storage.createUser({
         username,
