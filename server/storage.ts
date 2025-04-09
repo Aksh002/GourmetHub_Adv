@@ -83,31 +83,56 @@ export class MemStorage implements IStorage {
     this.currentOrderItemId = 1;
     this.currentPaymentId = 1;
 
-    // Setup initial data
-    this.initializeData();
-
+    // Setup session store
     const MemoryStore = createMemoryStore(session);
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     });
+    
+    // Setup initial data (initialize immediately)
+    this.initializeData().catch(err => {
+      console.error("Failed to initialize data:", err);
+    });
   }
 
   // Initialize with sample data for development
-  private initializeData() {
-    // Create admin user
+  private async initializeData() {
+    // These are pre-hashed passwords for 'admin' and 'customer'
+    // In a real app, you would never hard-code hashed passwords
+    const adminHashedPassword = "c7ad44cbad762a5da0a452f9e854fdc1e0e7a52a38015f23f3eab1d80b931dd472634dfac71cd34ebc35d16ab7fb8a90c81f975113d6c7538dc69dd8de9077ec.b2d0f9cadcf60c9ae81bfd37995ec34e";
+    const customerHashedPassword = "91b4d142823f7d20c5f08df69122de43f35f057a988d9619f6d3138485c9a203cd9376827d8af3cc73d18aa8f5aea03a7d220d4a1a18bd8abf0a7ff2d276cf0b.eb33c6f3bb519d028d28147ace3a1707";
+    
+    // Create admin user with pre-hashed password
     this.createUser({
       username: "admin",
-      password: "admin",
+      password: adminHashedPassword,
       name: "Restaurant Manager",
       email: "admin@restaurant.com",
       role: "admin"
     });
 
-    // Create customer user
+    // Create customer user with pre-hashed password
     this.createUser({
       username: "customer",
-      password: "customer",
+      password: customerHashedPassword,
       name: "John Customer",
+      email: "customer@example.com",
+      role: "customer"
+    });
+    
+    // Alternative accounts with admin@123 and customer@123 usernames
+    this.createUser({
+      username: "admin@123",
+      password: adminHashedPassword,
+      name: "admin",
+      email: "admin@example.com",
+      role: "admin"
+    });
+    
+    this.createUser({
+      username: "customer@123",
+      password: customerHashedPassword,
+      name: "customer",
       email: "customer@example.com",
       role: "customer"
     });
@@ -189,7 +214,9 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    // Ensure role is never undefined
+    const role = insertUser.role || "customer";
+    const user: User = { ...insertUser, id, role };
     this.users.set(id, user);
     return user;
   }
@@ -210,7 +237,8 @@ export class MemStorage implements IStorage {
 
   async createTable(insertTable: InsertTable): Promise<Table> {
     const id = this.currentTableId++;
-    const table: Table = { ...insertTable, id };
+    const qrCodeUrl = insertTable.qrCodeUrl || null;
+    const table: Table = { ...insertTable, id, qrCodeUrl };
     this.tables.set(id, table);
     return table;
   }
@@ -250,7 +278,19 @@ export class MemStorage implements IStorage {
 
   async createMenuItem(insertMenuItem: InsertMenuItem): Promise<MenuItem> {
     const id = this.currentMenuItemId++;
-    const menuItem: MenuItem = { ...insertMenuItem, id };
+    // Set default values for optional fields
+    const available = insertMenuItem.available !== undefined ? insertMenuItem.available : true;
+    const imageUrl = insertMenuItem.imageUrl || null;
+    const tags = insertMenuItem.tags || null;
+    
+    const menuItem: MenuItem = { 
+      ...insertMenuItem, 
+      id, 
+      available, 
+      imageUrl, 
+      tags 
+    };
+    
     this.menuItems.set(id, menuItem);
     return menuItem;
   }
@@ -279,9 +319,15 @@ export class MemStorage implements IStorage {
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
     const id = this.currentOrderId++;
+    // Set default values for required fields
+    const status = insertOrder.status || "placed";
+    const userId = insertOrder.userId !== undefined ? insertOrder.userId : null;
+    
     const order: Order = { 
       ...insertOrder, 
       id, 
+      status,
+      userId,
       createdAt: new Date() 
     };
     this.orders.set(id, order);
@@ -362,10 +408,16 @@ export class MemStorage implements IStorage {
   // Payment methods
   async createPayment(insertPayment: InsertPayment): Promise<Payment> {
     const id = this.currentPaymentId++;
+    // Set default values for optional fields
+    const status = insertPayment.status || "pending";
+    const paymentUrl = insertPayment.paymentUrl || null;
+    
     const payment: Payment = { 
       ...insertPayment, 
       id,
-      paidAt: insertPayment.status === "paid" ? new Date() : null
+      status,
+      paymentUrl,
+      paidAt: status === "paid" ? new Date() : null
     };
     this.payments.set(id, payment);
     return payment;
