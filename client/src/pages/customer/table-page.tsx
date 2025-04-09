@@ -173,7 +173,7 @@ export default function TablePage() {
       {/* Order Status Section */}
       {tableData?.order && (
         <div className="mb-6">
-          <OrderStatus order={tableData.order} />
+          <OrderStatus order={tableData.order as any} />
         </div>
       )}
       

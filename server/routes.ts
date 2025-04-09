@@ -221,6 +221,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      if (!req.user) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
       const newOrder = await storage.createOrder({
         ...req.body,
         userId: req.user.id
@@ -238,6 +242,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
+      }
+      
+      if (!req.user) {
+        return res.status(401).json({ message: "User not authenticated" });
       }
       
       // Check if order belongs to the user or user is admin
@@ -325,6 +333,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "There is already an active order for this table",
           orderId: activeOrder.id
         });
+      }
+      
+      if (!req.user) {
+        return res.status(401).json({ message: "User not authenticated" });
       }
       
       // Create the order
@@ -420,6 +432,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedPayment);
     } catch (error) {
       res.status(500).json({ message: "Failed to process payment" });
+    }
+  });
+
+  // Process payment for an order
+  app.post("/api/orders/:id/process-payment", requireAuth, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const { method } = req.body;
+      
+      if (!method) {
+        return res.status(400).json({ message: "Payment method is required" });
+      }
+      
+      const order = await storage.getOrder(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Check if order is in 'completed' status
+      if (order.status !== 'completed') {
+        return res.status(400).json({ message: "Order is not ready for payment" });
+      }
+      
+      // Get payment record or create one if it doesn't exist
+      let payment = await storage.getPaymentByOrderId(orderId);
+      
+      if (!payment) {
+        // Calculate order total
+        const orderWithItems = await storage.getOrderWithItems(orderId);
+        if (!orderWithItems) {
+          return res.status(404).json({ message: "Order items not found" });
+        }
+        
+        const totalAmount = orderWithItems.items.reduce(
+          (sum, item) => sum + (item.price * item.quantity), 0
+        );
+        
+        // Create payment record
+        payment = await storage.createPayment({
+          orderId,
+          amount: totalAmount,
+          status: 'pending',
+          paymentUrl: `/payments/${orderId}`
+        });
+      }
+      
+      // In a real app, integrate with actual payment providers based on method
+      // For demonstration, we'll simply mark the payment as successful
+      
+      // Process payment
+      await storage.updatePaymentStatus(payment.id, 'paid');
+      
+      // Update order status to paid
+      await storage.updateOrderStatus(orderId, 'paid');
+      
+      // Return success
+      res.status(200).json({ 
+        success: true,
+        message: "Payment processed successfully",
+        orderId,
+        paymentMethod: method
+      });
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      res.status(500).json({ 
+        message: "Failed to process payment",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

@@ -1,6 +1,9 @@
-import { Order } from "@shared/schema";
+import { useState } from "react";
+import { OrderWithItems } from "@shared/schema";
 import { getOrderStatusText } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import PaymentModal from "./payment-modal";
 import { 
   FileText, 
   UtensilsCrossed, 
@@ -10,10 +13,12 @@ import {
 } from "lucide-react";
 
 interface OrderStatusProps {
-  order: Order;
+  order: OrderWithItems;
 }
 
 export default function OrderStatus({ order }: OrderStatusProps) {
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  
   // Define steps for the order status flow
   const steps = [
     { key: 'placed', label: 'Ordered', icon: <FileText className="h-4 w-4" /> },
@@ -119,6 +124,27 @@ export default function OrderStatus({ order }: OrderStatusProps) {
           </div>
         </div>
       </div>
+      
+      {/* Show payment button when order is in "completed" status */}
+      {order.status === 'completed' && (
+        <div className="mt-6 flex justify-center">
+          <Button 
+            onClick={() => setIsPaymentModalOpen(true)}
+            size="lg"
+            className="w-full sm:w-auto"
+          >
+            <CreditCard className="mr-2 h-5 w-5" />
+            Pay Now
+          </Button>
+        </div>
+      )}
+      
+      {/* Payment Modal */}
+      <PaymentModal 
+        isOpen={isPaymentModalOpen} 
+        onClose={() => setIsPaymentModalOpen(false)} 
+        order={order}
+      />
     </div>
   );
 }
