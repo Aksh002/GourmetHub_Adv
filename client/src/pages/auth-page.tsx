@@ -73,8 +73,13 @@ export default function AuthPage() {
   // Form submission handlers
   const onLoginSubmit = (data: LoginFormValues) => {
     loginMutation.mutate(data, {
-      onSuccess: () => {
-        navigate("/");
+      onSuccess: (user) => {
+        // Redirect based on user role
+        if (user.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
       },
     });
   };
