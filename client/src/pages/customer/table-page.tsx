@@ -1,318 +1,98 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/use-auth";
-import CustomerLayout from "@/components/layouts/customer-layout";
-import MenuItemCard from "@/components/customer/menu-item-card";
-import OrderStatus from "@/components/customer/order-status";
-import CartModal from "@/components/customer/cart-modal";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { MenuItem, CartItem, TableWithOrder } from "@shared/schema";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, User } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, AlertTriangle, QrCode, Utensils } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function TablePage() {
-  const { tableId } = useParams<{ tableId: string }>();
-  const { user } = useAuth();
+  const { tableId } = useParams();
   const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-
-  // Query for table info and active order
-  const { data: tableData, isLoading: isTableLoading } = useQuery<TableWithOrder>({
-    queryKey: [`/api/tables/${tableId}/active-order`],
-    enabled: !!tableId,
-    refetchInterval: 10000, // Refetch every 10 seconds to keep order status updated
-  });
-
-  // Query for menu items
-  const { data: menuItems, isLoading: isMenuLoading } = useQuery<MenuItem[]>({
-    queryKey: [`/api/menu-items`, { category: selectedCategory }],
-    enabled: !!tableId,
-  });
-
-  // Place order mutation
-  const placeOrderMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) {
-        throw new Error("You must be logged in to place an order");
-      }
-      
-      if (cartItems.length === 0) {
-        throw new Error("Your cart is empty");
-      }
-
-      const res = await apiRequest("POST", "/api/order-from-cart", {
-        tableId: parseInt(tableId),
-        items: cartItems
-      });
-      
-      return await res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Order placed successfully!",
-        description: "Your order has been sent to the kitchen.",
-      });
-      setCartItems([]);
-      setCartOpen(false);
-      queryClient.invalidateQueries({
-        queryKey: [`/api/tables/${tableId}/active-order`],
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to place order",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle adding an item to cart
-  const addToCart = (item: MenuItem) => {
-    setCartItems((prevItems) => {
-      // Check if item already exists in cart
-      const existingItemIndex = prevItems.findIndex(
-        (cartItem) => cartItem.menuItemId === item.id
-      );
-
-      if (existingItemIndex >= 0) {
-        // Update quantity if item exists
-        const newItems = [...prevItems];
-        newItems[existingItemIndex].quantity += 1;
-        return newItems;
-      } else {
-        // Add new item to cart
-        return [
-          ...prevItems,
-          {
-            menuItemId: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: 1,
-          },
-        ];
-      }
-    });
-    
-    toast({
-      title: "Added to cart",
-      description: `${item.name} added to your cart.`,
-    });
-  };
-
-  // Handle updating cart item quantity
-  const updateCartItemQuantity = (id: number, quantity: number) => {
-    if (quantity <= 0) {
-      setCartItems((prevItems) => 
-        prevItems.filter((item) => item.menuItemId !== id)
-      );
-    } else {
-      setCartItems((prevItems) =>
-        prevItems.map((item) =>
-          item.menuItemId === id ? { ...item, quantity } : item
-        )
-      );
-    }
-  };
-
-  // Handle removing an item from cart
-  const removeFromCart = (id: number) => {
-    setCartItems((prevItems) => 
-      prevItems.filter((item) => item.menuItemId !== id)
-    );
-  };
-
-  // Calculate cart totals
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  const { user, isLoading: isAuthLoading } = useAuth();
   
-  const tax = Math.round(subtotal * 0.1);
-  const total = subtotal + tax;
+  // Parse table ID
+  const parsedTableId = parseInt(tableId || "0");
 
-  // Format price to dollars
-  const formatPrice = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
+  // Verify table exists
+  const { 
+    data: table, 
+    isLoading: isTableLoading, 
+    isError 
+  } = useQuery({
+    queryKey: ["/api/tables", parsedTableId],
+    queryFn: () => 
+      fetch(`/api/tables/${parsedTableId}`).then(res => {
+        if (!res.ok) {
+          throw new Error("Table not found");
+        }
+        return res.json();
+      }),
+    enabled: !!parsedTableId,
+  });
+
+  // Redirect to menu if user is already logged in
+  useEffect(() => {
+    if (!isAuthLoading && user && table) {
+      navigate(`/customer/menu?table=${parsedTableId}`);
+    }
+  }, [user, isAuthLoading, table, parsedTableId, navigate]);
+  
+  const isLoading = isAuthLoading || isTableLoading;
+  
+  const handleLogin = () => {
+    navigate(`/auth?returnUrl=${encodeURIComponent(`/customer/menu?table=${parsedTableId}`)}`);
   };
-
-  // If no tableId, redirect to home
-  useEffect(() => {
-    if (!tableId) {
-      navigate("/");
-    }
-  }, [tableId, navigate]);
-
-  // If not logged in, redirect to auth page
-  useEffect(() => {
-    if (!user && !isTableLoading) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to place an order.",
-      });
-      navigate(`/auth?redirect=/table/${tableId}`);
-    }
-  }, [user, isTableLoading, tableId, navigate, toast]);
 
   return (
-    <CustomerLayout 
-      title="The Gourmet Hub"
-      tableInfo={tableData ? `Table #${tableData.tableNumber}, Floor ${tableData.floorNumber}` : "Loading..."}
-      cartItemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-      onCartClick={() => setCartOpen(true)}
-      onLoginClick={() => navigate("/auth")}
-      user={user}
-    >
-      {/* Order Status Section */}
-      {tableData?.order && (
-        <div className="mb-6">
-          <OrderStatus order={tableData.order} />
-        </div>
-      )}
-      
-      {/* Category Navigation */}
-      <div className="bg-gray-100 overflow-x-auto mb-6">
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="h-auto p-0 bg-transparent">
-            <TabsTrigger 
-              value="all" 
-              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3"
-            >
-              All
-            </TabsTrigger>
-            <TabsTrigger 
-              value="starters" 
-              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3"
-            >
-              Starters
-            </TabsTrigger>
-            <TabsTrigger 
-              value="main_course" 
-              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3"
-            >
-              Main Course
-            </TabsTrigger>
-            <TabsTrigger 
-              value="desserts" 
-              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3"
-            >
-              Desserts
-            </TabsTrigger>
-            <TabsTrigger 
-              value="beverages" 
-              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3"
-            >
-              Beverages
-            </TabsTrigger>
-            <TabsTrigger 
-              value="specials" 
-              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-3"
-            >
-              Specials
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-      
-      <h2 className="text-xl font-poppins font-semibold text-gray-900 mb-4">Our Menu</h2>
-      
-      {/* Menu Items Grid */}
-      {isMenuLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <Skeleton className="w-full h-48" />
-              <div className="p-4">
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-full mb-4" />
-                <div className="flex justify-between">
-                  <Skeleton className="h-5 w-20" />
-                  <Skeleton className="h-9 w-32" />
-                </div>
+    <div className="min-h-screen stars-bg flex flex-col items-center justify-center p-4">
+      <div className="text-center max-w-md w-full glossy gradient-border rounded-3xl p-8 backdrop-blur-md">
+        {isLoading ? (
+          <div className="py-8 flex flex-col items-center justify-center">
+            <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+            <p className="text-muted-foreground">Loading table information...</p>
+          </div>
+        ) : isError ? (
+          <div className="py-8">
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Invalid Table</h2>
+            <p className="text-muted-foreground mb-6">
+              This table QR code is invalid or the table doesn't exist.
+            </p>
+            <Button onClick={() => navigate("/")} className="w-full">
+              Go to Home
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6">
+              <div className="bg-primary/20 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <QrCode className="h-8 w-8 text-primary" />
               </div>
+              <h1 className="text-3xl font-bold font-space text-gradient mb-2">
+                Table #{table.tableNumber}
+              </h1>
+              <p className="text-muted-foreground">
+                Welcome to Gourmet Hub! Please log in to access the menu and place your order.
+              </p>
             </div>
-          ))}
-        </div>
-      ) : menuItems && menuItems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {menuItems.map((item) => (
-            <MenuItemCard
-              key={item.id}
-              item={item}
-              formatPrice={formatPrice}
-              onAddToCart={() => addToCart(item)}
-              disabled={!!tableData?.order || !item.available}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-500">No menu items available in this category</p>
-        </div>
-      )}
-      
-      {/* Check if there's an active order already */}
-      {!tableData?.order && cartItems.length > 0 && (
-        <div className="fixed bottom-4 right-4 left-4 md:left-auto md:w-auto z-10">
-          <Button 
-            onClick={() => setCartOpen(true)}
-            size="lg"
-            className="w-full md:w-auto shadow-lg"
-          >
-            <ShoppingCart className="mr-2 h-5 w-5" />
-            View Cart ({cartItems.reduce((sum, item) => sum + item.quantity, 0)} items)
-          </Button>
-        </div>
-      )}
-      
-      {/* Cart Modal */}
-      <CartModal
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        cartItems={cartItems}
-        updateQuantity={updateCartItemQuantity}
-        removeItem={removeFromCart}
-        subtotal={subtotal}
-        tax={tax}
-        total={total}
-        formatPrice={formatPrice}
-        onPlaceOrder={() => {
-          if (!user) {
-            toast({
-              title: "Authentication required",
-              description: "Please log in to place an order",
-              variant: "destructive",
-            });
-            navigate(`/auth?redirect=/table/${tableId}`);
-            return;
-          }
-          placeOrderMutation.mutate();
-        }}
-        isPending={placeOrderMutation.isPending}
-        hasActiveOrder={!!tableData?.order}
-      />
-      
-      {/* Show login button if user is not logged in */}
-      {!user && (
-        <div className="fixed bottom-4 inset-x-4 md:left-auto md:right-4 md:w-auto z-10">
-          <Button 
-            onClick={() => navigate(`/auth?redirect=/table/${tableId}`)}
-            variant="outline"
-            size="lg"
-            className="w-full md:w-auto shadow-lg bg-white"
-          >
-            <User className="mr-2 h-5 w-5" />
-            Login to place an order
-          </Button>
-        </div>
-      )}
-    </CustomerLayout>
+            
+            <div className="flex flex-col gap-4">
+              <Alert className="bg-primary/10 border-primary/20">
+                <Utensils className="h-4 w-4" />
+                <AlertTitle>Ready to order?</AlertTitle>
+                <AlertDescription>
+                  Access our digital menu and order directly from your table. No need to wait for service.
+                </AlertDescription>
+              </Alert>
+              
+              <Button onClick={handleLogin} className="btn-glow">
+                Continue to Menu
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

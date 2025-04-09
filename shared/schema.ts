@@ -125,7 +125,7 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
 
 // Cart item type
 export const cartItemSchema = z.object({
-  menuItemId: z.number(),
+  id: z.number(),
   quantity: z.number().min(1),
   name: z.string(),
   price: z.number()

@@ -7,6 +7,10 @@ import AuthPage from "@/pages/auth-page";
 import NotFound from "@/pages/not-found";
 import TablePage from "@/pages/customer/table-page";
 
+// Customer Pages
+import CustomerMenuPage from "@/pages/customer/menu-page";
+import CustomerOrderPage from "@/pages/customer/order-page";
+
 // Admin Pages
 import DashboardPage from "@/pages/admin/dashboard-page";
 import MenuPage from "@/pages/admin/menu-page";
@@ -24,11 +28,37 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/table/:tableId" component={TablePage} />
       
+      {/* Customer routes - protected */}
+      <ProtectedRoute 
+        path="/customer/menu" 
+        component={() => <CustomerMenuPage />} 
+      />
+      <ProtectedRoute 
+        path="/customer/order/:id" 
+        component={() => <CustomerOrderPage />} 
+      />
+      
       {/* Admin routes - protected */}
-      <ProtectedRoute path="/admin" component={DashboardPage} role="admin" />
-      <ProtectedRoute path="/admin/menu" component={MenuPage} role="admin" />
-      <ProtectedRoute path="/admin/orders" component={OrdersPage} role="admin" />
-      <ProtectedRoute path="/admin/tables" component={TablesPage} role="admin" />
+      <ProtectedRoute 
+        path="/admin" 
+        component={() => <DashboardPage />} 
+        role="admin" 
+      />
+      <ProtectedRoute 
+        path="/admin/menu" 
+        component={() => <MenuPage />} 
+        role="admin" 
+      />
+      <ProtectedRoute 
+        path="/admin/orders" 
+        component={() => <OrdersPage />} 
+        role="admin" 
+      />
+      <ProtectedRoute 
+        path="/admin/tables" 
+        component={() => <TablesPage />} 
+        role="admin" 
+      />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />

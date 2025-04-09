@@ -1,7 +1,16 @@
-import { Fragment } from "react";
-import { CartItem } from "@shared/schema";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { X, ShoppingCart, Minus, Plus } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CartItem } from "@shared/schema";
+import { Minus, Plus, Trash2, Info, ShoppingCart } from "lucide-react";
 
 interface CartModalProps {
   isOpen: boolean;
@@ -32,127 +41,141 @@ export default function CartModal({
   isPending,
   hasActiveOrder,
 }: CartModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50">
-      <div className="bg-white w-full md:w-2/3 lg:w-1/2 md:rounded-lg md:max-h-[80vh] max-h-[90vh] overflow-auto">
-        <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-          <h2 className="text-lg font-poppins font-semibold text-gray-900">Your Order</h2>
-          <button 
-            onClick={onClose} 
-            className="text-gray-500 hover:text-gray-700"
-            aria-label="Close cart"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent className="w-full sm:max-w-md glossy border-l border-border/40">
+        <SheetHeader className="pb-4 border-b border-border/40">
+          <SheetTitle className="text-xl flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5" />
+            Your Order
+          </SheetTitle>
+        </SheetHeader>
         
-        <div className="p-4">
-          {cartItems.length > 0 ? (
-            <Fragment>
-              <div className="space-y-4 mb-6">
+        {cartItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[50vh]">
+            <div className="text-4xl mb-4">🛒</div>
+            <h3 className="text-xl font-semibold mb-2">Your cart is empty</h3>
+            <p className="text-muted-foreground text-center max-w-xs">
+              Add items from the menu to start your order
+            </p>
+            <SheetClose asChild>
+              <Button className="mt-6" variant="outline">
+                Browse Menu
+              </Button>
+            </SheetClose>
+          </div>
+        ) : (
+          <>
+            <ScrollArea className="flex-1 my-6 max-h-[50vh] pr-4">
+              <div className="space-y-4">
                 {cartItems.map((item) => (
-                  <div key={item.menuItemId} className="flex justify-between items-center border-b pb-4">
-                    <div className="flex items-center">
-                      <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden mr-3">
-                        <img 
-                          src={`https://source.unsplash.com/featured/?food,${item.name.replace(/\s+/g, '')}`} 
-                          className="w-full h-full object-cover" 
-                          alt={item.name} 
-                        />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">{item.name}</h3>
-                        <p className="text-sm text-gray-500">{formatPrice(item.price)}</p>
+                  <div
+                    key={item.id}
+                    className="flex justify-between items-center py-2 border-b border-border/20 last:border-0"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatPrice(item.price)} per item
                       </div>
                     </div>
-                    <div className="flex items-center">
-                      <button 
-                        onClick={() => updateQuantity(item.menuItemId, item.quantity - 1)}
-                        className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100"
-                        aria-label="Decrease quantity"
+                    
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center border border-border/40 rounded-md">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-r-none"
+                          onClick={() => {
+                            if (item.quantity > 1) {
+                              updateQuantity(item.id, item.quantity - 1);
+                            } else {
+                              removeItem(item.id);
+                            }
+                          }}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        
+                        <div className="w-8 text-center">{item.quantity}</div>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-l-none"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => removeItem(item.id)}
                       >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className="mx-3 font-medium">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(item.menuItemId, item.quantity + 1)}
-                        className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100"
-                        aria-label="Increase quantity"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
-              
-              <div className="mb-6">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-500">Subtotal</span>
-                  <span className="font-medium">{formatPrice(subtotal)}</span>
+            </ScrollArea>
+            
+            <div className="space-y-4">
+              <div className="bg-background/20 p-4 rounded-lg">
+                <div className="flex justify-between mb-2">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatPrice(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-500">Tax (10%)</span>
-                  <span className="font-medium">{formatPrice(tax)}</span>
+                <div className="flex justify-between mb-2">
+                  <span className="text-muted-foreground">Tax (8%)</span>
+                  <span>{formatPrice(tax)}</span>
                 </div>
-                <div className="flex justify-between font-medium mt-4 pt-4 border-t">
+                <div className="flex justify-between text-lg font-semibold border-t border-border pt-2 mt-2">
                   <span>Total</span>
-                  <span className="font-montserrat text-lg text-orange-600">{formatPrice(total)}</span>
+                  <span className="text-gradient">{formatPrice(total)}</span>
                 </div>
-              </div>
-              
-              <div className="flex flex-col space-y-3">
-                <Button 
-                  onClick={onPlaceOrder} 
-                  disabled={isPending || hasActiveOrder || cartItems.length === 0}
-                  className="flex items-center justify-center"
-                >
-                  {isPending ? (
-                    <Fragment>
-                      <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </Fragment>
-                  ) : (
-                    <Fragment>
-                      <ShoppingCart className="mr-2 h-5 w-5" />
-                      Place Order
-                    </Fragment>
-                  )}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={onClose}
-                >
-                  Continue Browsing
-                </Button>
               </div>
               
               {hasActiveOrder && (
-                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
-                  <p className="font-medium">There is an active order for this table</p>
-                  <p>You cannot place a new order until the current one is completed.</p>
-                </div>
+                <Alert className="bg-orange-500/10 border-orange-500/20">
+                  <Info className="h-4 w-4 text-orange-500" />
+                  <AlertTitle>Active Order In Progress</AlertTitle>
+                  <AlertDescription className="text-sm">
+                    You already have an active order for this table. Please wait until it's completed before placing a new order.
+                  </AlertDescription>
+                </Alert>
               )}
-            </Fragment>
-          ) : (
-            <div className="py-12 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                <ShoppingCart className="h-8 w-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
-              <p className="text-gray-500 mb-6">Add some delicious items from our menu</p>
-              <Button variant="outline" onClick={onClose}>
-                Browse Menu
+              
+              <Button 
+                onClick={onPlaceOrder}
+                disabled={isPending || hasActiveOrder || cartItems.length === 0}
+                className="w-full btn-glow"
+              >
+                {isPending ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  "Place Order"
+                )}
               </Button>
+              
+              <SheetClose asChild>
+                <Button variant="outline" className="w-full">
+                  Continue Browsing
+                </Button>
+              </SheetClose>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }
