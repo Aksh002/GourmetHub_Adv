@@ -3,10 +3,10 @@ import { Link } from "wouter";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { QRCode } from "@/components/ui/qr-code";
 import { HandPlatter, ChefHat, QrCode, LogIn, User } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function HomePage() {
-  // Temporarily disable auth to debug
-  const user: { role?: string } | null = null;
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen">

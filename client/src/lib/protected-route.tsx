@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
 
@@ -10,9 +11,7 @@ export function ProtectedRoute({
   component: () => React.JSX.Element;
   role?: string;
 }) {
-  // Temporarily disable auth to debug
-  const isLoading = false;
-  const user: { role?: string } | null = null;
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -39,10 +40,7 @@ type RegisterFormValues = z.infer<typeof registerFormSchema>;
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<string>("login");
-  // Temporary mock for debugging - will replace with actual auth later
-  const user: { role?: string } | null = null;
-  const loginMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
-  const registerMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
+  const { user, loginMutation, registerMutation } = useAuth();
   const [, navigate] = useLocation();
 
   // Redirect if user is already logged in
