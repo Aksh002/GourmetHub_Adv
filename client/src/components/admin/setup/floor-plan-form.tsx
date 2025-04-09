@@ -370,6 +370,10 @@ const FloorPlanEditor = ({
     },
   });
 
+  return (
+    <Form {...form}>
+      <form>
+
   // Update form when floorPlan changes
   useEffect(() => {
     form.reset({
@@ -387,8 +391,10 @@ const FloorPlanEditor = ({
     onChange({
       ...floorPlan,
       [field]: value,
-    });
-  };
+    </form>
+    </Form>
+  );
+};
 
   return (
     <Form {...form}>
