@@ -1,7 +1,5 @@
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
-import { User } from "@shared/schema";
 
 export function ProtectedRoute({
   path,
@@ -9,15 +7,17 @@ export function ProtectedRoute({
   role,
 }: {
   path: string;
-  component: () => React.JSX.Element | null;
+  component: () => React.JSX.Element;
   role?: string;
 }) {
-  const { user, isLoading } = useAuth();
+  // Temporarily disable auth to debug
+  const isLoading = false;
+  const user: { role?: string } | null = null;
 
   if (isLoading) {
     return (
       <Route path={path}>
-        <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </Route>

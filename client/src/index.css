@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,157 +9,47 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background: linear-gradient(to bottom, hsl(225, 40%, 3%), hsl(225, 35%, 8%));
-    min-height: 100vh;
   }
 
   :root {
-    /* Base colors */
-    --background: 225 47% 4%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 96%;
+    --foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --primary: 16 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 142 70% 49%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 42 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 16 100% 50%;
+    --radius: 0.5rem;
     
-    /* UI component colors */
-    --muted: 225 33% 17%;
-    --muted-foreground: 215 20% 75%;
-    --popover: 225 47% 4%;
-    --popover-foreground: 210 40% 98%;
-    --card: 225 47% 6%;
-    --card-foreground: 210 40% 98%;
-    --border: 225 33% 18%;
-    --input: 225 33% 15%;
-    
-    /* Primary color: Royal Blue */
-    --primary: 225 85% 60%;
-    --primary-foreground: 210 40% 98%;
-    
-    /* Secondary color: Darker blue */
-    --secondary: 230 60% 25%;
-    --secondary-foreground: 210 40% 98%;
-    
-    /* Accent color: Lighter blue */
-    --accent: 220 95% 65%;
-    --accent-foreground: 210 40% 98%;
-    
-    /* Destructive color */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    
-    /* Focus ring */
-    --ring: 225 85% 60%;
-    --radius: 0.75rem;
-    
-    /* Chart colors - all in the blue spectrum */
-    --chart-1: 225 85% 60%;  /* Royal blue */
-    --chart-2: 240 85% 60%;  /* Blue */
-    --chart-3: 210 85% 60%;  /* Azure */
-    --chart-4: 195 85% 60%;  /* Cyan-blue */
-    --chart-5: 255 85% 60%;  /* Violet-blue */
+    /* Chart colors */
+    --chart-1: 16 100% 50%;
+    --chart-2: 142 70% 49%;
+    --chart-3: 42 100% 50%;
+    --chart-4: 216 100% 50%;
+    --chart-5: 262 100% 50%;
   }
-}
 
-@layer utilities {
   .font-poppins {
     font-family: 'Poppins', sans-serif;
   }
 
-  .font-space {
-    font-family: 'Space Grotesk', sans-serif;
+  .font-roboto {
+    font-family: 'Roboto', sans-serif;
   }
 
-  .font-inter {
-    font-family: 'Inter', sans-serif;
-  }
-  
-  /* Enhanced glossy effect for cards with blue glow */
-  .glossy {
-    background: rgba(13, 18, 30, 0.8);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(65, 105, 225, 0.15);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 
-                inset 0 1px 1px rgba(255, 255, 255, 0.07),
-                0 0 15px rgba(65, 105, 225, 0.2);
-    transition: box-shadow 0.3s ease;
-  }
-  
-  .glossy:hover {
-    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4), 
-                inset 0 1px 1px rgba(255, 255, 255, 0.07),
-                0 0 20px rgba(65, 105, 225, 0.3);
-  }
-  
-  /* Starry background animation */
-  .stars-bg {
-    background-image: radial-gradient(circle, rgba(150, 180, 255, 0.1) 1px, transparent 1px);
-    background-size: 50px 50px;
-  }
-  
-  /* Royal blue gradient text */
-  .text-gradient {
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-image: linear-gradient(to right, hsl(225, 85%, 65%), hsl(240, 80%, 60%));
-  }
-  
-  /* Custom button glow effect */
-  .btn-glow {
-    position: relative;
-    z-index: 1;
-    overflow: hidden;
-  }
-  
-  .btn-glow::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(45deg, rgba(65, 105, 225, 0.6), rgba(100, 90, 255, 0.6));
-    filter: blur(15px);
-    z-index: -1;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-  
-  .btn-glow:hover::after {
-    opacity: 1;
-  }
-  
-  /* Card with royal blue glow */
-  .card-glow {
-    position: relative;
-    box-shadow: 0 0 10px rgba(65, 105, 225, 0.15);
-    transition: box-shadow 0.3s ease;
-  }
-  
-  .card-glow:hover {
-    box-shadow: 0 0 20px rgba(65, 105, 225, 0.3);
-  }
-  
-  /* High contrast text for better readability */
-  .high-contrast-text {
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  }
-  
-  /* Gradient border */
-  .gradient-border {
-    position: relative;
-    border-radius: var(--radius);
-  }
-  
-  .gradient-border::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px; 
-    background: linear-gradient(to right, hsl(225, 85%, 65%), hsl(240, 80%, 60%));
-    -webkit-mask: 
-      linear-gradient(#fff 0 0) content-box, 
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
+  .font-montserrat {
+    font-family: 'Montserrat', sans-serif;
   }
 }

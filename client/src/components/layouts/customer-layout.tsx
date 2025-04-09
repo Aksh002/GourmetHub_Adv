@@ -1,13 +1,17 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { User } from "@shared/schema";
+import { HandPlatter, ShoppingCart, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, LogOut, Menu, ShoppingCart, Table, History, User } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
-import { User as UserType } from "@shared/schema";
 
 interface CustomerLayoutProps {
   children: ReactNode;
@@ -15,7 +19,8 @@ interface CustomerLayoutProps {
   tableInfo?: string;
   cartItemCount?: number;
   onCartClick?: () => void;
-  user?: Omit<UserType, "password"> | null;
+  onLoginClick?: () => void;
+  user?: Omit<User, "password"> | null;
 }
 
 export default function CustomerLayout({
@@ -24,208 +29,98 @@ export default function CustomerLayout({
   tableInfo,
   cartItemCount = 0,
   onCartClick,
-  user
+  onLoginClick,
+  user,
 }: CustomerLayoutProps) {
   const [location] = useLocation();
   const { logoutMutation } = useAuth();
-  
+  const [activeCategoryTab, setActiveCategoryTab] = useState("all");
+
   const handleLogout = () => {
     logoutMutation.mutate();
   };
-  
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase();
-  };
-  
+
   return (
-    <div className="min-h-screen flex flex-col stars-bg">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="border-b border-border/40 backdrop-blur-md z-10 sticky top-0">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/" className="text-xl font-bold flex items-center text-gradient">
-              <span className="text-2xl mr-1">🍽️</span>
-              Gourmet Hub
-            </Link>
-            
+      <header className="bg-white shadow-md">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <Link href="/">
+            <a className="flex items-center">
+              <HandPlatter className="h-6 w-6 text-orange-600 mr-2" />
+              <h1 className="text-xl font-poppins font-bold text-gray-900">{title}</h1>
+            </a>
+          </Link>
+          <div className="flex items-center space-x-4">
             {tableInfo && (
-              <div className="hidden sm:flex items-center ml-4 text-sm text-muted-foreground">
-                <Table className="h-4 w-4 mr-1" />
-                {tableInfo}
+              <div className="hidden md:flex items-center text-sm text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>{tableInfo}</span>
               </div>
             )}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {onCartClick && (
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="text-orange-600 hover:text-orange-700 p-1">
+                    <span className="hidden md:inline mr-1">{user.name}</span>
+                    <UserIcon className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {user.role === "admin" && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin">
+                        <a className="cursor-pointer">Admin Dashboard</a>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
               <Button
                 variant="ghost"
-                size="icon"
-                className="relative"
-                onClick={onCartClick}
+                className="text-orange-600 hover:text-orange-700"
+                onClick={onLoginClick}
               >
-                <ShoppingCart className="h-5 w-5" />
-                {cartItemCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 rounded-full"
-                  >
-                    {cartItemCount}
-                  </Badge>
-                )}
+                <UserIcon className="h-5 w-5 mr-1" />
+                Login
               </Button>
             )}
-            
-            {/* User Avatar and Menu (Desktop) */}
-            {user ? (
-              <div className="hidden md:block">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      className="gap-2 hover:bg-background/20"
-                    >
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage src="" />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{user.name}</span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="glossy border-border/40">
-                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <Link href="/customer/menu">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Menu
-                      </DropdownMenuItem>
-                    </Link>
-                    <Link href="/customer/orders">
-                      <DropdownMenuItem className="cursor-pointer">
-                        <History className="h-4 w-4 mr-2" />
-                        Order History
-                      </DropdownMenuItem>
-                    </Link>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : (
-              <Link href="/auth">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="gap-2 hidden md:flex"
-                >
-                  <User className="h-4 w-4" />
-                  Login
-                </Button>
-              </Link>
+            {onCartClick && (
+              <button 
+                className="relative"
+                onClick={onCartClick}
+                aria-label="Shopping cart"
+              >
+                <ShoppingCart className="h-5 w-5 text-orange-600" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {cartItemCount}
+                  </span>
+                )}
+              </button>
             )}
-            
-            {/* Mobile Menu */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden"
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="glossy border-l border-border/40">
-                <div className="flex flex-col h-full">
-                  <div className="flex-1 py-6">
-                    {user ? (
-                      <div className="flex items-center gap-3 mb-6">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src="" />
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            {getInitials(user.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-sm text-muted-foreground">{user.email}</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <Link href="/auth" className="block mb-6">
-                        <Button className="w-full">
-                          <User className="h-4 w-4 mr-2" />
-                          Login
-                        </Button>
-                      </Link>
-                    )}
-                    
-                    <div className="space-y-3">
-                      <Link href="/customer/menu">
-                        <Button
-                          variant={location === "/customer/menu" ? "default" : "ghost"}
-                          className="w-full justify-start"
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Menu
-                        </Button>
-                      </Link>
-                      <Link href="/customer/orders">
-                        <Button
-                          variant={location === "/customer/orders" ? "default" : "ghost"}
-                          className="w-full justify-start"
-                        >
-                          <History className="h-4 w-4 mr-2" />
-                          Order History
-                        </Button>
-                      </Link>
-                      
-                      {tableInfo && (
-                        <div className="flex items-center py-2 px-4 text-sm text-muted-foreground">
-                          <Table className="h-4 w-4 mr-2" />
-                          {tableInfo}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {user && (
-                    <Button
-                      variant="ghost"
-                      className="justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={handleLogout}
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
-                    </Button>
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
         </div>
       </header>
-      
+
       {/* Main Content */}
-      <main className="flex-1 pb-16">
+      <main className="flex-grow container mx-auto px-4 py-6">
         {children}
       </main>
-      
+
       {/* Footer */}
-      <footer className="py-6 border-t border-border/40 backdrop-blur-md">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Gourmet Hub. All rights reserved.</p>
+      <footer className="bg-white border-t py-4">
+        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
+          <p>© {new Date().getFullYear()} The Gourmet Hub. All rights reserved.</p>
         </div>
       </footer>
     </div>

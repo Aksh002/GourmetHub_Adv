@@ -2,21 +2,19 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Mail, Lock, User, UserPlus, LogIn } from "lucide-react";
-import { FaGoogle, FaFacebook } from "react-icons/fa";
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { User as UserType } from "@shared/schema";
+import { HandPlatter, LogIn, Mail, Lock, User, UserPlus } from "lucide-react";
 
 // Login form schema
 const loginFormSchema = z.object({
@@ -40,10 +38,11 @@ type LoginFormValues = z.infer<typeof loginFormSchema>;
 type RegisterFormValues = z.infer<typeof registerFormSchema>;
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  
-  const { user, loginMutation, registerMutation } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>("login");
+  // Temporary mock for debugging - will replace with actual auth later
+  const user: { role?: string } | null = null;
+  const loginMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
+  const registerMutation = { isPending: false, mutate: (data: any, options: any) => options?.onSuccess?.() };
   const [, navigate] = useLocation();
 
   // Redirect if user is already logged in
@@ -73,356 +72,366 @@ export default function AuthPage() {
     },
   });
 
-  // Get toast functionality
-  const { toast } = useToast();
-  
   // Form submission handlers
   const onLoginSubmit = (data: LoginFormValues) => {
-    console.log("Login form submitted:", data);
-    
     loginMutation.mutate(data, {
-      onSuccess: (user: UserType) => {
-        console.log("Login successful:", user);
-        
-        // Navigate to appropriate route based on user role
-        if (user.role === "admin") {
-          navigate("/admin");
-        } else {
-          navigate("/customer/menu");
-        }
+      onSuccess: () => {
+        navigate("/");
       },
-      onError: (error: Error) => {
-        console.error("Login error:", error);
-        
-        // Show specific error message when user doesn't exist
-        toast({
-          title: "Login failed",
-          description: error.message || "Invalid username or password",
-          variant: "destructive",
-        });
-      }
     });
   };
 
   const onRegisterSubmit = (data: RegisterFormValues) => {
-    console.log("Registration form submitted:", data);
-    
     registerMutation.mutate({
       ...data,
       role: "customer", // Default role for new users
     }, {
-      onSuccess: (user: UserType) => {
-        console.log("Registration successful:", user);
-        toast({
-          title: "Registration successful",
-          description: `Welcome, ${user.name}!`,
-        });
-        
-        // Navigate to appropriate route
-        navigate("/customer/menu");
+      onSuccess: () => {
+        navigate("/");
       },
-      onError: (error: Error) => {
-        console.error("Registration error:", error);
-        toast({
-          title: "Registration failed",
-          description: error.message || "Could not create account",
-          variant: "destructive",
-        });
-      }
     });
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center stars-bg">
-      <div className="absolute top-6 left-6">
-        <Link href="/">
-          <Button variant="ghost" className="gap-2 text-white/80 hover:text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-left"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-            Back to home
-          </Button>
-        </Link>
+    <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Left column - Authentication forms */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-10">
+        <div className="w-full max-w-md">
+          <div className="flex items-center mb-8">
+            <HandPlatter className="h-8 w-8 text-orange-600 mr-2" />
+            <h1 className="text-2xl font-bold font-poppins">The Gourmet Hub</h1>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="login" className="text-base">Login</TabsTrigger>
+              <TabsTrigger value="register" className="text-base">Register</TabsTrigger>
+            </TabsList>
+
+            {/* Login Form */}
+            <TabsContent value="login">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold mb-2">Welcome back</h2>
+                  <p className="text-gray-500">Sign in to your account to continue</p>
+                </div>
+
+                <Form {...loginForm}>
+                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                    <FormField
+                      control={loginForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                              <Input 
+                                {...field} 
+                                placeholder="Enter your username" 
+                                className="pl-10"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={loginForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                              <Input 
+                                {...field} 
+                                type="password" 
+                                placeholder="Enter your password" 
+                                className="pl-10"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      disabled={loginMutation.isPending}
+                    >
+                      {loginMutation.isPending ? (
+                        <span className="flex items-center">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Signing in...
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Sign In
+                        </span>
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">
+                    Don't have an account?{" "}
+                    <button
+                      onClick={() => setActiveTab("register")}
+                      className="text-orange-600 hover:underline"
+                    >
+                      Register now
+                    </button>
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Register Form */}
+            <TabsContent value="register">
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold mb-2">Create an account</h2>
+                  <p className="text-gray-500">Join us to start ordering</p>
+                </div>
+
+                <Form {...registerForm}>
+                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                    <FormField
+                      control={registerForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                              <Input 
+                                {...field} 
+                                placeholder="Enter your full name" 
+                                className="pl-10" 
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={registerForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                              <Input 
+                                {...field} 
+                                placeholder="Enter your email" 
+                                className="pl-10"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={registerForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                              <Input 
+                                {...field} 
+                                placeholder="Choose a username" 
+                                className="pl-10"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={registerForm.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                              <Input 
+                                {...field} 
+                                type="password" 
+                                placeholder="Create a password" 
+                                className="pl-10"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={registerForm.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm Password</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                              <Input 
+                                {...field} 
+                                type="password" 
+                                placeholder="Confirm your password" 
+                                className="pl-10"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      disabled={registerMutation.isPending}
+                    >
+                      {registerMutation.isPending ? (
+                        <span className="flex items-center">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Registering...
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Create Account
+                        </span>
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">
+                    Already have an account?{" "}
+                    <button
+                      onClick={() => setActiveTab("login")}
+                      className="text-orange-600 hover:underline"
+                    >
+                      Sign in
+                    </button>
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
-      
-      <div className="container max-w-md px-4">
-        <div className="glossy gradient-border rounded-3xl p-8 backdrop-blur-md">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold font-space text-gradient mb-2">
-              {isLogin ? 'Welcome back' : 'Create an account'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isLogin 
-                ? 'Sign in to continue to the Gourmet Hub' 
-                : 'Join us for a premium dining experience'}
-            </p>
-          </div>
-          
-          {/* Social login buttons */}
-          <div className="flex gap-3 mb-4">
-            <Button 
-              variant="outline" 
-              className="flex-1 flex items-center justify-center gap-2 bg-background/50 hover:bg-background/80 card-glow"
-            >
-              <FaGoogle className="h-4 w-4 text-accent" />
-              Google
-            </Button>
-            <Button 
-              variant="outline" 
-              className="flex-1 flex items-center justify-center gap-2 bg-background/50 hover:bg-background/80 card-glow"
-            >
-              <FaFacebook className="h-4 w-4 text-accent" />
-              Facebook
-            </Button>
-          </div>
-          
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border"></span>
+
+      {/* Right column - Hero section */}
+      <div className="hidden md:flex flex-1 bg-gradient-to-br from-orange-500 to-amber-600 text-white">
+        <div className="flex flex-col justify-center p-12 max-w-md mx-auto">
+          <h2 className="text-3xl font-bold mb-6 font-poppins">
+            Experience the Modern Way to Dine
+          </h2>
+          <p className="text-lg mb-8">
+            Join our smart restaurant system for a seamless dining experience. Order, pay, and enjoy without the wait.
+          </p>
+          <div className="space-y-4">
+            <div className="flex items-start">
+              <div className="bg-white/20 p-2 rounded-full mr-4">
+                <QrCode className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-xl mb-1">Quick Access</h3>
+                <p>Scan QR codes at your table to instantly access the menu</p>
+              </div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="px-2 bg-card text-muted-foreground">Or</span>
+            <div className="flex items-start">
+              <div className="bg-white/20 p-2 rounded-full mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+                  <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" />
+                  <path d="m16 12-4 4-4-4" />
+                  <path d="M12 16V8" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-xl mb-1">Real-time Tracking</h3>
+                <p>Track your order status from kitchen to table in real-time</p>
+              </div>
             </div>
-          </div>
-          
-          {isLogin ? (
-            <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-                <FormField
-                  control={loginForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input 
-                            {...field} 
-                            type="text"
-                            placeholder="Username" 
-                            className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="username"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={loginForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input 
-                            {...field} 
-                            type={showPassword ? "text" : "password"} 
-                            placeholder="Password" 
-                            className="pl-10 pr-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="current-password"
-                          />
-                          <button 
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-3 text-muted-foreground"
-                          >
-                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <div className="flex justify-end">
-                        <Button type="button" variant="link" className="p-0 h-auto text-xs text-primary">
-                          Forgot Password?
-                        </Button>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 mt-6 text-base btn-glow font-medium card-glow"
-                  disabled={loginMutation.isPending}
-                >
-                  {loginMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Signing in...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <LogIn className="h-5 w-5" />
-                      Sign In
-                    </span>
-                  )}
-                </Button>
-              </form>
-            </Form>
-          ) : (
-            <Form {...registerForm}>
-              <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
-                <FormField
-                  control={registerForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input 
-                            {...field} 
-                            type="email"
-                            placeholder="Email" 
-                            className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="email"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={registerForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <User className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input 
-                            {...field} 
-                            type="text"
-                            placeholder="Full Name" 
-                            className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="name"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={registerForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <User className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input 
-                            {...field} 
-                            type="text"
-                            placeholder="Username" 
-                            className="pl-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="username"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={registerForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input 
-                            {...field} 
-                            type={showPassword ? "text" : "password"} 
-                            placeholder="Password" 
-                            className="pl-10 pr-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="new-password"
-                          />
-                          <button 
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-3 text-muted-foreground"
-                          >
-                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={registerForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input 
-                            {...field} 
-                            type={showPassword ? "text" : "password"} 
-                            placeholder="Confirm Password" 
-                            className="pl-10 pr-10 h-12 bg-background/50 border-border/50 focus:border-primary"
-                            autoComplete="new-password"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 mt-6 text-base btn-glow font-medium card-glow"
-                  disabled={registerMutation.isPending}
-                >
-                  {registerMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Creating account...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <UserPlus className="h-5 w-5" />
-                      Create account
-                    </span>
-                  )}
-                </Button>
-              </form>
-            </Form>
-          )}
-          
-          <div className="mt-6 text-center text-sm">
-            <p className="text-muted-foreground">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}
-              {" "}
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-primary hover:underline font-medium"
-              >
-                {isLogin ? "Create account" : "Log in"}
-              </button>
-            </p>
+            <div className="flex items-start">
+              <div className="bg-white/20 p-2 rounded-full mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+                  <rect width="20" height="14" x="2" y="5" rx="2" />
+                  <line x1="2" x2="22" y1="10" y2="10" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-xl mb-1">Contactless Payment</h3>
+                <p>Pay directly from your device with our secure payment system</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// Import icons for the auth page
+function QrCode(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="5" height="5" x="3" y="3" rx="1" />
+      <rect width="5" height="5" x="16" y="3" rx="1" />
+      <rect width="5" height="5" x="3" y="16" rx="1" />
+      <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+      <path d="M21 21v.01" />
+      <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+      <path d="M3 12h.01" />
+      <path d="M12 3h.01" />
+      <path d="M12 16v.01" />
+      <path d="M16 12h1" />
+      <path d="M21 12v.01" />
+    </svg>
   );
 }

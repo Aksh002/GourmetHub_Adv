@@ -129,35 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  
-  // Create a default context if none is found
   if (!context) {
-    // For development purposes, return a default implementation
-    // instead of throwing an error
-    return {
-      user: null,
-      isLoading: false,
-      error: new Error("AuthProvider not found"),
-      loginMutation: {
-        isPending: false,
-        mutate: () => {
-          console.error("No auth provider found");
-        },
-      } as any,
-      registerMutation: {
-        isPending: false,
-        mutate: () => {
-          console.error("No auth provider found");
-        },
-      } as any,
-      logoutMutation: {
-        isPending: false,
-        mutate: () => {
-          console.error("No auth provider found");
-        },
-      } as any,
-    };
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  
   return context;
 }
