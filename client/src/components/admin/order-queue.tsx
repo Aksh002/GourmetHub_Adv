@@ -1,4 +1,4 @@
-import { OrderWithItems } from "@shared/schema";
+import { Order } from "@/types/table-types";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -17,10 +17,10 @@ import {
 } from "lucide-react";
 
 interface OrderQueueProps {
-  placedOrders: OrderWithItems[];
-  preparingOrders: OrderWithItems[];
-  servedOrders: OrderWithItems[];
-  billingOrders: OrderWithItems[];
+  placedOrders: Order[];
+  preparingOrders: Order[];
+  servedOrders: Order[];
+  billingOrders: Order[];
 }
 
 export default function OrderQueue({
@@ -67,7 +67,7 @@ export default function OrderQueue({
   };
 
   // Render a single order card
-  const renderOrderCard = (order: OrderWithItems, actionButton: JSX.Element) => {
+  const renderOrderCard = (order: Order, actionButton: JSX.Element) => {
     const isProcessing = processingOrderIds.includes(order.id);
     
     return (
