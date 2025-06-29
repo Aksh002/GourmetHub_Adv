@@ -1,4 +1,4 @@
-import { TableWithOrder } from "@shared/schema";
+import { TableWithOrder } from "@/types/table-types";
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatTimeAgo, getOrderStatusText } from "@/lib/utils";
 import { X, UtensilsCrossed, Coffee, Receipt, Printer } from "lucide-react";
