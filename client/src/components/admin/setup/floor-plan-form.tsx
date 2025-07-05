@@ -70,7 +70,7 @@ const FloorPlanForm = ({
         try {
           const res = await apiRequest(
             "GET",
-            `/api/floor-plans/restaurant/${restaurantId}`
+            `/api/floor-plans?restaurantId=${restaurantId}`
           );
           const data = await res.json();
           
@@ -358,7 +358,7 @@ const FloorPlanEditor = ({
   floorPlan,
   onChange,
 }: FloorPlanEditorProps) => {
-  const form = useForm<z.infer<typeof floorPlanFormSchema>>({
+  const form = useForm<FloorPlanFormData>({
     resolver: zodResolver(floorPlanFormSchema),
     defaultValues: {
       name: floorPlan.name || "",
@@ -369,10 +369,6 @@ const FloorPlanEditor = ({
       isActive: floorPlan.isActive !== false,
     },
   });
-
-  return (
-    <Form {...form}>
-      <form>
 
   // Update form when floorPlan changes
   useEffect(() => {
@@ -391,150 +387,96 @@ const FloorPlanEditor = ({
     onChange({
       ...floorPlan,
       [field]: value,
-    </form>
-    </Form>
-  );
-};
+    });
+  };
 
   return (
-    <Form {...form}>
-      <form className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Floor Name*</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Main Dining Floor"
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e);
-                      handleFieldChange("name", e.target.value);
-                    }}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Give this floor a descriptive name
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="floorNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Floor Number*</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="1"
-                    {...field}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      field.onChange(value);
-                      handleFieldChange("floorNumber", value);
-                    }}
-                  />
-                </FormControl>
-                <FormDescription>
-                  The numeric level of this floor (1 for ground floor, etc.)
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Main dining area with bar seating"
-                  rows={3}
-                  {...field}
-                  value={field.value || ""}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    handleFieldChange("description", e.target.value);
-                  }}
-                />
-              </FormControl>
-              <FormDescription>
-                Briefly describe this floor (optional)
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label htmlFor="name" className="text-sm font-medium">Floor Name</label>
+        <Input 
+          id="name"
+          value={form.watch("name") || ""}
+          onChange={(e) => {
+            form.setValue("name", e.target.value);
+            handleFieldChange("name", e.target.value);
+          }}
         />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="width"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Width (in grid units)*</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={5}
-                    placeholder="20"
-                    {...field}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      field.onChange(value);
-                      handleFieldChange("width", value);
-                    }}
-                  />
-                </FormControl>
-                <FormDescription>
-                  The width of the floor plan in grid units
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <div className="space-y-2">
+        <label htmlFor="floorNumber" className="text-sm font-medium">Floor Number</label>
+        <Input 
+          id="floorNumber"
+          type="number"
+          value={form.watch("floorNumber") || 1}
+          onChange={(e) => {
+            const value = parseInt(e.target.value);
+            form.setValue("floorNumber", value);
+            handleFieldChange("floorNumber", value);
+          }}
+        />
+      </div>
 
-          <FormField
-            control={form.control}
-            name="height"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Height (in grid units)*</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={5}
-                    placeholder="15"
-                    {...field}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      field.onChange(value);
-                      handleFieldChange("height", value);
-                    }}
-                  />
-                </FormControl>
-                <FormDescription>
-                  The height of the floor plan in grid units
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
+      <div className="space-y-2">
+        <label htmlFor="description" className="text-sm font-medium">Description</label>
+        <Textarea 
+          id="description"
+          value={form.watch("description") || ""}
+          onChange={(e) => {
+            form.setValue("description", e.target.value);
+            handleFieldChange("description", e.target.value);
+          }}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label htmlFor="width" className="text-sm font-medium">Width (units)</label>
+          <Input 
+            id="width"
+            type="number"
+            value={form.watch("width") || 20}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              form.setValue("width", value);
+              handleFieldChange("width", value);
+            }}
           />
         </div>
-      </form>
-    </Form>
+
+        <div className="space-y-2">
+          <label htmlFor="height" className="text-sm font-medium">Height (units)</label>
+          <Input 
+            id="height"
+            type="number"
+            value={form.watch("height") || 15}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              form.setValue("height", value);
+              handleFieldChange("height", value);
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-start space-x-3 space-y-0">
+        <input
+          id="isActive"
+          type="checkbox"
+          checked={form.watch("isActive")}
+          onChange={(e) => {
+            form.setValue("isActive", e.target.checked);
+            handleFieldChange("isActive", e.target.checked);
+          }}
+          className="mt-1"
+        />
+        <div className="space-y-1 leading-none">
+          <label htmlFor="isActive" className="text-sm font-medium">Active Floor</label>
+          <p className="text-sm text-gray-500">Only active floors will be shown to customers</p>
+        </div>
+      </div>
+    </div>
   );
 };
 
