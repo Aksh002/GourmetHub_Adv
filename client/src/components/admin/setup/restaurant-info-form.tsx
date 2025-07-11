@@ -16,6 +16,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Restaurant } from "@shared/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type RestaurantInfoFormProps = {
   onComplete: (data: z.infer<typeof formSchema>) => void;
@@ -33,8 +40,31 @@ const formSchema = insertRestaurantSchema
     website: z.string().url("Invalid URL").optional().nullable(),
     logo: z.string().optional().nullable(),
     currency: z.string().default("USD"),
+    cuisineType: z.string().min(1, "Cuisine type is required"),
+    priceRange: z.enum(["$", "$$", "$$$", "$$$$"]).default("$$"),
   })
   .omit({ isConfigured: true });
+
+const cuisineTypes = [
+  "American",
+  "Italian",
+  "Chinese",
+  "Japanese",
+  "Indian",
+  "Mexican",
+  "Thai",
+  "French",
+  "Mediterranean",
+  "Fusion",
+  "Other"
+];
+
+const priceRanges = [
+  { value: "$", label: "$ (Under $15)" },
+  { value: "$$", label: "$$ ($15-$30)" },
+  { value: "$$$", label: "$$$ ($31-$60)" },
+  { value: "$$$$", label: "$$$$ (Over $60)" },
+];
 
 const RestaurantInfoForm = ({ onComplete, initialData }: RestaurantInfoFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,6 +80,8 @@ const RestaurantInfoForm = ({ onComplete, initialData }: RestaurantInfoFormProps
         website: initialData.website ?? "",
         logo: initialData.logo ?? "",
         currency: initialData.currency || "USD",
+        cuisineType: initialData.cuisineType || "",
+        priceRange: (initialData.priceRange || "$$") as "$" | "$$" | "$$$" | "$$$$"
       }
     : {
         name: "",
@@ -60,6 +92,8 @@ const RestaurantInfoForm = ({ onComplete, initialData }: RestaurantInfoFormProps
         website: "",
         logo: "",
         currency: "USD",
+        cuisineType: "",
+        priceRange: "$$" as const
       };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -71,7 +105,15 @@ const RestaurantInfoForm = ({ onComplete, initialData }: RestaurantInfoFormProps
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
-      await onComplete(data);
+      // Transform the data to match the expected format
+      const transformedData = {
+        ...data,
+        isConfigured: false, // Always false during initial setup
+      };
+      await onComplete(transformedData);
+    } catch (error) {
+      console.error('Error submitting restaurant info:', error);
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
@@ -92,6 +134,64 @@ const RestaurantInfoForm = ({ onComplete, initialData }: RestaurantInfoFormProps
                 </FormControl>
                 <FormDescription>
                   Enter the name of your restaurant
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="cuisineType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cuisine Type*</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select cuisine type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {cuisineTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Select your restaurant's primary cuisine type
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="priceRange"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Price Range*</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select price range" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {priceRanges.map((range) => (
+                      <SelectItem key={range.value} value={range.value}>
+                        {range.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Select your restaurant's price range
                 </FormDescription>
                 <FormMessage />
               </FormItem>
