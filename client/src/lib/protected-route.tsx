@@ -1,9 +1,9 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 export function ProtectedRoute({
   path,
@@ -14,81 +14,94 @@ export function ProtectedRoute({
   component: () => React.JSX.Element;
   role?: string;
 }) {
-  const { user, isLoading } = useAuth();
-  const [location] = useLocation();
-  const [shouldCheckRestaurant, setShouldCheckRestaurant] = useState(false);
+  const { user, isLoading: authLoading } = useAuth();
+  const [location, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   
-  // Only check restaurant setup status for admin users and admin routes, excluding the setup route
+  // Check if this is an admin route
   const isAdminRoute = path.startsWith("/admin");
   const isSetupRoute = path === "/admin/setup";
-  
-  useEffect(() => {
-    // Only check restaurant setup for admin routes (excluding setup route)
-    if (user && user.role === "admin" && isAdminRoute && !isSetupRoute) {
-      setShouldCheckRestaurant(true);
-    } else {
-      setShouldCheckRestaurant(false);
-    }
-  }, [user, isAdminRoute, isSetupRoute]);
+  const shouldCheckRestaurant = isAdminRoute && !isSetupRoute && user?.role === "admin";
   
   // Query to check if restaurant is configured
-  const { data: restaurant, isLoading: isLoadingRestaurant } = useQuery({
-    queryKey: ['/api/restaurant'],
+  const { data: restaurant, isLoading: restaurantLoading, error: restaurantError } = useQuery({
+    queryKey: ['/api/restaurant', user?.restaurantId],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/restaurant");
-        return await res.json();
-      } catch (error) {
-        // If restaurant doesn't exist yet, return null
-        return null;
+      if (!shouldCheckRestaurant || !user?.restaurantId) return null;
+      const res = await apiRequest("GET", `/api/restaurant/${user.restaurantId}`);
+      if (!res.ok) {
+        // If we get a 404, it means no restaurant exists yet
+        if (res.status === 404) {
+          return null;
+        }
+        throw new Error("Failed to fetch restaurant data");
       }
+      const data = await res.json();
+      console.log("[DEBUG] Fetched restaurant data:", data);
+      return data;
     },
-    enabled: shouldCheckRestaurant,
+    enabled: shouldCheckRestaurant && !!user?.restaurantId,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    staleTime: 0, // Consider data as stale immediately
+    gcTime: 0, // Don't keep the data in cache
   });
 
-  if (isLoading || (shouldCheckRestaurant && isLoadingRestaurant)) {
+  // Handle navigation in useEffect
+  useEffect(() => {
+    if (authLoading || (shouldCheckRestaurant && restaurantLoading)) {
+      return;
+    }
+
+    if (!user) {
+      setLocation("/");
+      return;
+    }
+
+    if (role && user.role !== role) {
+      setLocation("/");
+      return;
+    }
+
+    // For admin routes, handle restaurant configuration checks
+    if (isAdminRoute && user.role === "admin") {
+      console.log("[DEBUG] Admin route check - Restaurant data:", restaurant);
+      
+      // If we're on the setup route and restaurant is configured, redirect to admin dashboard
+      if (isSetupRoute && restaurant?.isConfigured) {
+        console.log("[DEBUG] Setup route with configured restaurant - redirecting to /admin");
+        setLocation("/admin");
+        return;
+      }
+
+      // If we're on any other admin route and restaurant is not configured or doesn't exist, redirect to setup
+      if (!isSetupRoute && (!restaurant || !restaurant.isConfigured)) {
+        console.log("[DEBUG] Admin route with unconfigured restaurant - redirecting to /admin/setup");
+        setLocation("/admin/setup");
+        return;
+      }
+    }
+  }, [user, role, restaurant, authLoading, restaurantLoading, isAdminRoute, isSetupRoute, setLocation]);
+
+  // Handle loading states
+  if (authLoading || (shouldCheckRestaurant && restaurantLoading)) {
     return (
-      <Route path={path}>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
-      </Route>
+      </div>
     );
   }
 
-  if (!user) {
-    return (
-      <Route path={path}>
-        <Redirect to="/auth" />
-      </Route>
-    );
+  // If we're still loading or should redirect, don't render the component
+  if (!user || (role && user.role !== role) || 
+      (isAdminRoute && !isSetupRoute && (!restaurant || !restaurant.isConfigured)) ||
+      (isSetupRoute && restaurant?.isConfigured)) {
+    return null;
   }
 
-  if (role && user.role !== role) {
-    return (
-      <Route path={path}>
-        <Redirect to="/" />
-      </Route>
-    );
-  }
-  
-  // For admin users, check if they need to complete setup (except on the setup page)
-  if (shouldCheckRestaurant && (!restaurant || !restaurant.isConfigured)) {
-    return (
-      <Route path={path}>
-        <Redirect to="/admin/setup" />
-      </Route>
-    );
-  }
-  
-  // For setup page, if restaurant is configured, redirect to dashboard
-  if (isSetupRoute && restaurant?.isConfigured) {
-    return (
-      <Route path={path}>
-        <Redirect to="/admin" />
-      </Route>
-    );
-  }
-
-  return <Route path={path} component={Component} />;
+  return <Component />;
 }
