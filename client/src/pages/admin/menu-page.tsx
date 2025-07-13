@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import AdminLayout from "@/components/layouts/admin-layout";
 import { MenuItem, insertMenuItemSchema, menuItemCategories } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import React from "react";
 
 // Define menu item form schema based on the insert schema
 const menuItemFormSchema = insertMenuItemSchema.extend({
@@ -93,46 +95,126 @@ const menuItemFormSchema = insertMenuItemSchema.extend({
 
 type MenuItemFormValues = z.infer<typeof menuItemFormSchema>;
 
+// Helper function to capitalize first letter with null check
+const capitalizeFirstLetter = (str: string | undefined | null) => {
+  if (!str) return 'Other';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 export default function MenuPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const { user } = useAuth();
 
-  // Setup form
+  // Setup form with validation
   const form = useForm<MenuItemFormValues>({
     resolver: zodResolver(menuItemFormSchema),
     defaultValues: {
       name: "",
       description: "",
       price: 0,
-      category: "main",
+      category: menuItemCategories[0], // Set first actual category as default
       imageUrl: "",
       available: true,
     },
   });
 
-  // Fetch menu items
-  const { data: menuItems, isLoading } = useQuery<MenuItem[]>({
-    queryKey: ["/api/menu-items", selectedCategory],
+  // Fetch menu items with better error handling
+  const { data: menuItems = [], isLoading, error } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu-items", { restaurantId: user?.restaurantId }],
     queryFn: async () => {
-      const url = selectedCategory 
-        ? `/api/menu-items?category=${selectedCategory}`
-        : "/api/menu-items";
-      const response = await apiRequest("GET", url);
-      return response.json();
+      if (!user?.restaurantId) {
+        throw new Error("Restaurant ID not found");
+      }
+      const response = await apiRequest("GET", `/api/menu-items?restaurantId=${user.restaurantId}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to fetch menu items');
+      }
+      return await response.json() || [];
     },
+    enabled: !!user?.restaurantId, // Only run query when we have a user with restaurantId
   });
+
+  if (!user?.restaurantId) {
+    return (
+      <AdminLayout>
+        <div className="container mx-auto p-4">
+          <h1 className="text-2xl font-bold mb-4">Menu Items</h1>
+          <p>Loading user information...</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Group items by category including "all"
+  const itemsByCategory = React.useMemo(() => {
+    console.log("Grouping menu items:", menuItems);
+    const grouped: Record<string, MenuItem[]> = {
+      all: [] // Initialize "all" category
+    };
+
+    // First, add all items to the "all" category
+    grouped.all = [...menuItems];
+
+    // Then group items by their specific categories
+    menuItems.forEach(item => {
+      const category = (item.category || 'other').toLowerCase().replace(' ', '_');
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(item);
+    });
+
+    // Ensure all predefined categories exist
+    menuItemCategories.forEach(category => {
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+    });
+
+    console.log("Grouped items:", grouped);
+    return grouped;
+  }, [menuItems]);
+
+  // Filter menu items by search query and category
+  const filteredItems = React.useMemo(() => {
+    console.log("Filtering items for category:", selectedCategory);
+    if (!menuItems?.length) return [];
+    
+    return menuItems.filter((item) => {
+      const matchesSearch = !searchQuery || 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        item.description.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (selectedCategory === "all") {
+        return matchesSearch;
+      }
+      
+      const itemCategory = (item.category || 'other').toLowerCase().replace(' ', '_');
+      return matchesSearch && itemCategory === selectedCategory;
+    });
+  }, [menuItems, searchQuery, selectedCategory]);
 
   // Create menu item mutation
   const createMenuItem = useMutation({
     mutationFn: async (data: MenuItemFormValues) => {
-      const response = await apiRequest("POST", "/api/menu-items", data);
+      const response = await apiRequest("POST", "/api/menu-items", {
+        ...data,
+        price: Number(data.price), // Ensure price is a number
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create menu item');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -140,18 +222,11 @@ export default function MenuPage() {
         title: "Menu item created",
         description: "The menu item has been created successfully.",
       });
-      form.reset({
-        name: "",
-        description: "",
-        price: 0,
-        category: "main",
-        imageUrl: "",
-        available: true,
-      });
+      form.reset();
       setIsAddDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/menu-items"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to create menu item",
         description: error.message,
@@ -163,7 +238,15 @@ export default function MenuPage() {
   // Update menu item mutation
   const updateMenuItem = useMutation({
     mutationFn: async (data: { id: number; item: Partial<MenuItem> }) => {
-      const response = await apiRequest("PUT", `/api/menu-items/${data.id}`, data.item);
+      const response = await apiRequest("PUT", `/api/menu-items/${data.id}`, {
+        ...data.item,
+        price: Number(data.item.price), // Ensure price is a number
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update menu item');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -176,7 +259,7 @@ export default function MenuPage() {
       setEditingItem(null);
       queryClient.invalidateQueries({ queryKey: ["/api/menu-items"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to update menu item",
         description: error.message,
@@ -208,30 +291,28 @@ export default function MenuPage() {
     },
   });
 
-  // Handle form submission
-  const onSubmit = (data: MenuItemFormValues) => {
-    if (isEditMode && editingItem) {
-      updateMenuItem.mutate({
-        id: editingItem.id,
-        item: data,
-      });
-    } else {
-      createMenuItem.mutate(data);
+  // Handle form submission with better error handling
+  const onSubmit = async (data: MenuItemFormValues) => {
+    try {
+      if (isEditMode && editingItem) {
+        await updateMenuItem.mutateAsync({
+          id: editingItem.id,
+          item: {
+            ...data,
+            price: Number(data.price),
+          },
+        });
+      } else {
+        await createMenuItem.mutateAsync({
+          ...data,
+          price: Number(data.price),
+        });
+      }
+    } catch (error) {
+      console.error('Form submission error:', error);
+      // Error is handled by the mutation callbacks
     }
   };
-
-  // Filter menu items by search query and category
-  const filteredItems = menuItems
-    ? menuItems.filter((item) => {
-        const matchesSearch = !searchQuery || 
-          item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          item.description.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        const matchesCategory = !selectedCategory || item.category === selectedCategory;
-        
-        return matchesSearch && matchesCategory;
-      })
-    : [];
 
   // Handle edit button click
   const handleEdit = (item: MenuItem) => {
@@ -250,6 +331,16 @@ export default function MenuPage() {
 
   // Handle delete button click
   const handleDelete = (item: MenuItem) => {
+    // Check if this is the last item in its category
+    const categoryItems = itemsByCategory[item.category.toLowerCase().replace(' ', '_')] || [];
+    if (categoryItems.length <= 1) {
+      toast({
+        title: "Cannot delete item",
+        description: "Each category must have at least one item. Edit the item instead.",
+        variant: "destructive",
+      });
+      return;
+    }
     setItemToDelete(item);
     setIsDeleteDialogOpen(true);
   };
@@ -262,6 +353,7 @@ export default function MenuPage() {
     });
   };
 
+  // Modify the category tabs section to remove "All" and show counts
   return (
     <AdminLayout>
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -478,7 +570,7 @@ export default function MenuPage() {
                             name: "",
                             description: "",
                             price: 0,
-                            category: "main",
+                            category: menuItemCategories[0],
                             imageUrl: "",
                             available: true,
                           });
@@ -513,25 +605,45 @@ export default function MenuPage() {
         {/* Category Filter Tabs */}
         <div className="bg-white rounded-lg shadow-sm mb-6">
           <Tabs 
-            defaultValue="all" 
-            value={selectedCategory || "all"}
-            onValueChange={(value) => setSelectedCategory(value === "all" ? "" : value)}
+            defaultValue="all"
+            value={selectedCategory}
+            onValueChange={setSelectedCategory}
             className="w-full"
           >
             <TabsList className="w-full">
               <TabsTrigger value="all" className="flex-1">
-                All Categories
+                <span className="flex items-center gap-2">
+                  All
+                  <Badge variant="secondary" className="ml-2">
+                    {itemsByCategory["all"]?.length || 0}
+                  </Badge>
+                </span>
               </TabsTrigger>
-              {menuItemCategories.map((category) => (
+              {menuItemCategories.filter(cat => cat !== "all").map((category) => (
                 <TabsTrigger key={category} value={category} className="flex-1">
-                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                  <span className="flex items-center gap-2">
+                    {capitalizeFirstLetter(category)}
+                    <Badge variant="secondary" className="ml-2">
+                      {itemsByCategory[category]?.length || 0}
+                    </Badge>
+                  </span>
                 </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
         </div>
         
-        {isLoading ? (
+        {/* Show error state if fetch failed */}
+        {error ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+            <XCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load menu items</h3>
+            <p className="text-gray-500 mb-6">{error.message}</p>
+            <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/menu-items"] })}>
+              Try Again
+            </Button>
+          </div>
+        ) : isLoading ? (
           viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -581,28 +693,14 @@ export default function MenuPage() {
               </Table>
             </div>
           )
-        ) : filteredItems.length === 0 ? (
+        ) : !menuItems.length ? (
           <div className="text-center py-12 bg-white rounded-lg shadow-sm">
             <Pizza className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No menu items found</h3>
             <p className="text-gray-500 mb-6">
-              {searchQuery || selectedCategory
-                ? "Try adjusting your filters to see more items."
-                : "Add your first menu item to get started."}
+              Add your first menu item to get started.
             </p>
-            <Button 
-              onClick={() => {
-                form.reset({
-                  name: "",
-                  description: "",
-                  price: 0,
-                  category: selectedCategory || "main",
-                  imageUrl: "",
-                  available: true,
-                });
-                setIsAddDialogOpen(true);
-              }}
-            >
+            <Button onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Menu Item
             </Button>
@@ -613,9 +711,13 @@ export default function MenuPage() {
               <Card key={item.id} className="overflow-hidden group">
                 <div className="h-48 bg-gray-100 relative">
                   <img 
-                    src={item.imageUrl || `https://source.unsplash.com/featured/?food,${item.name.replace(/\s+/g, '')}`}
+                    src={item.imageUrl || `https://source.unsplash.com/featured/?food,${(item.name || 'food').replace(/\s+/g, '')}`}
                     alt={item.name}
                     className="h-full w-full object-cover"
+                    onError={(e) => {
+                      // Fallback if image fails to load
+                      e.currentTarget.src = 'https://source.unsplash.com/featured/?food';
+                    }}
                   />
                   {!item.available && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -672,7 +774,7 @@ export default function MenuPage() {
                   <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
                   <div className="mt-2">
                     <Badge variant="outline" className="text-xs">
-                      {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                      {capitalizeFirstLetter(item.category)}
                     </Badge>
                   </div>
                 </CardContent>
@@ -708,8 +810,8 @@ export default function MenuPage() {
                     <TableCell>
                       <div className="h-12 w-12 rounded-md bg-gray-100 overflow-hidden">
                         <img
-                          src={item.imageUrl || `https://source.unsplash.com/featured/?food,${item.name.replace(/\s+/g, '')}`}
-                          alt={item.name}
+                          src={item.imageUrl || `https://source.unsplash.com/featured/?food,${(item.name || 'food').replace(/\s+/g, '')}`}
+                          alt={item.name || 'Menu Item'}
                           className="h-full w-full object-cover"
                         />
                       </div>
@@ -717,7 +819,7 @@ export default function MenuPage() {
                     <TableCell>
                       <div className="font-medium">{item.name}</div>
                       <div className="text-xs text-gray-500">
-                        {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                        {capitalizeFirstLetter(item.category)}
                       </div>
                     </TableCell>
                     <TableCell>{formatPrice(item.price)}</TableCell>
