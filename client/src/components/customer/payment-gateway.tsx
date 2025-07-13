@@ -42,7 +42,11 @@ export default function PaymentGateway({ order, onSuccess }: PaymentGatewayProps
   // Process payment mutation
   const processPaymentMutation = useMutation({
     mutationFn: async ({ orderId, method }: { orderId: number; method: string }) => {
-      return apiRequest("POST", `/api/orders/${orderId}/process-payment`, { method });
+      return apiRequest("POST", `/api/orders/${orderId}/process-payment`, { 
+        method,
+        restaurantId: order.restaurantId,
+        customerId: order.userId || 0
+      });
     },
     onSuccess: () => {
       setIsComplete(true);
