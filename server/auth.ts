@@ -21,11 +21,10 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+async function comparePasswords(provided: string, stored: string) {
+  const [hashedPassword, salt] = stored.split(".");
+  const buf = (await scryptAsync(provided, salt, 64)) as Buffer;
+  return timingSafeEqual(Buffer.from(hashedPassword, "hex"), buf);
 }
 
 export function setupAuth(app: Express) {
@@ -102,15 +101,26 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      // Allow users to register as admin
-      let userRole = role;
+      let restaurantId = null;
 
+      // If registering as admin, create a restaurant first
+      if (role === "admin") {
+        // Create a new restaurant with minimal details
+        const restaurant = await storage.createRestaurant({
+          name: name, // Use the admin's name as initial restaurant name
+          isConfigured: false,
+        });
+        restaurantId = restaurant.id;
+      }
+
+      // Create the user with restaurant association if admin
       const user = await storage.createUser({
         username,
         password: await hashPassword(password),
         name,
         email,
-        role: userRole
+        role,
+        restaurantId
       });
 
       // Remove password from response
