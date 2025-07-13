@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { HandPlatter, LogIn, Mail, Lock, User, UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Login form schema
 const loginFormSchema = z.object({
@@ -25,13 +26,13 @@ const loginFormSchema = z.object({
 
 // Registration form schema
 const registerFormSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
+  username: z.string().min(1, "Username is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(1, "Please confirm your password"),
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
   path: ["confirmPassword"],
 });
 
@@ -43,11 +44,36 @@ export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, navigate] = useLocation();
 
+  // Get table context from session storage
+  const tableId = sessionStorage.getItem('currentTableId');
+  const restaurantId = sessionStorage.getItem('currentRestaurantId');
+
   // Redirect if user is already logged in
-  if (user) {
-    navigate(user.role === "admin" ? "/admin" : "/");
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      if (tableId && restaurantId) {
+        // If coming from QR code scan, redirect to menu
+        navigate(`/menu/${restaurantId}`);
+      } else {
+        // Normal login flow
+        navigate(user.role === "admin" ? "/admin" : "/");
+      }
+    }
+  }, [user, tableId, restaurantId]);
+
+  // Check if user clicked "Register as Admin" on the home page
+  const [registerAsAdmin, setRegisterAsAdmin] = useState(() => {
+    // Check localStorage for the flag
+    const registerAsAdminFlag = localStorage.getItem('registerAsAdmin');
+    if (registerAsAdminFlag === 'true') {
+      // Remove the flag from localStorage so it doesn't persist
+      localStorage.removeItem('registerAsAdmin');
+      // Set the active tab to register
+      setTimeout(() => setActiveTab("register"), 0);
+      return true;
+    }
+    return false;
+  });
 
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -74,37 +100,35 @@ export default function AuthPage() {
   const onLoginSubmit = (data: LoginFormValues) => {
     loginMutation.mutate(data, {
       onSuccess: (user) => {
-        // Redirect based on user role
-        if (user.role === "admin") {
-          navigate("/admin");
+        if (tableId && restaurantId) {
+          // If coming from QR code scan, redirect to menu
+          navigate(`/menu/${restaurantId}`);
         } else {
-          navigate("/");
+          // Normal login flow
+          navigate(user.role === "admin" ? "/admin" : "/");
         }
       },
     });
   };
-
-  // Check if user clicked "Register as Admin" on the home page
-  const [registerAsAdmin, setRegisterAsAdmin] = useState(() => {
-    // Check localStorage for the flag
-    const registerAsAdminFlag = localStorage.getItem('registerAsAdmin');
-    if (registerAsAdminFlag === 'true') {
-      // Remove the flag from localStorage so it doesn't persist
-      localStorage.removeItem('registerAsAdmin');
-      // Set the active tab to register
-      setTimeout(() => setActiveTab("register"), 0);
-      return true;
-    }
-    return false;
-  });
   
   const onRegisterSubmit = (data: RegisterFormValues) => {
     registerMutation.mutate({
       ...data,
-      role: registerAsAdmin ? "admin" : "customer",
+      role: tableId ? "customer" : (registerAsAdmin ? "admin" : "customer"), // Handle both QR and admin flows
+      restaurantId: restaurantId ? parseInt(restaurantId) : undefined
     }, {
-      onSuccess: () => {
-        navigate(registerAsAdmin ? "/admin" : "/");
+      onSuccess: (user) => {
+        if (tableId && restaurantId) {
+          // If coming from QR code scan, redirect to menu
+          navigate(`/menu/${restaurantId}`);
+        } else {
+          // Normal registration flow
+          if (user.role === "admin") {
+            navigate("/admin/setup");
+          } else {
+            navigate("/");
+          }
+        }
       },
     });
   };
@@ -116,319 +140,152 @@ export default function AuthPage() {
         <div className="w-full max-w-md">
           <div className="flex items-center mb-8">
             <HandPlatter className="h-8 w-8 text-orange-600 mr-2" />
-            <h1 className="text-2xl font-bold font-poppins">The Gourmet Hub</h1>
+            <h1 className="text-2xl font-bold font-poppins">
+              {tableId && restaurantId ? "Table Login" : "The Gourmet Hub"}
+            </h1>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="login" className="text-base">Login</TabsTrigger>
-              <TabsTrigger value="register" className="text-base">Register</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">
+                {tableId ? "Customer Login" : "Restaurant Login"}
+              </TabsTrigger>
+              <TabsTrigger value="register">
+                {tableId ? "New Customer" : (registerAsAdmin ? "Restaurant Register" : "Customer Register")}
+              </TabsTrigger>
             </TabsList>
-
-            {/* Login Form */}
             <TabsContent value="login">
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-semibold mb-2">Welcome back</h2>
-                  <p className="text-gray-500">Sign in to your account to continue</p>
-                </div>
-
-                <Form {...loginForm}>
-                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-                    <FormField
-                      control={loginForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                placeholder="Enter your username" 
-                                className="pl-10"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={loginForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                type="password" 
-                                placeholder="Enter your password" 
-                                className="pl-10"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
-                      disabled={loginMutation.isPending}
-                    >
-                      {loginMutation.isPending ? (
-                        <span className="flex items-center">
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Signing in...
-                        </span>
-                      ) : (
-                        <span className="flex items-center">
-                          <LogIn className="mr-2 h-4 w-4" />
-                          Sign In
-                        </span>
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">
-                    Don't have an account?{" "}
-                    <button
-                      onClick={() => setActiveTab("register")}
-                      className="text-orange-600 hover:underline"
-                    >
-                      Register now
-                    </button>
-                  </p>
-                </div>
-              </div>
+              <Form {...loginForm}>
+                <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                  <FormField
+                    control={loginForm.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Enter your password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                    {loginMutation.isPending ? "Logging in..." : (tableId ? "Login to Continue" : "Login to Restaurant Dashboard")}
+                  </Button>
+                </form>
+              </Form>
             </TabsContent>
-
-            {/* Register Form */}
             <TabsContent value="register">
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-semibold mb-2">Create an account</h2>
-                  <p className="text-gray-500">Join us to start ordering</p>
-                </div>
-
-                <Form {...registerForm}>
-                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
-                    <FormField
-                      control={registerForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                placeholder="Enter your full name" 
-                                className="pl-10" 
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={registerForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                placeholder="Enter your email" 
-                                className="pl-10"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={registerForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                placeholder="Choose a username" 
-                                className="pl-10"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={registerForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                type="password" 
-                                placeholder="Create a password" 
-                                className="pl-10"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={registerForm.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confirm Password</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                              <Input 
-                                {...field} 
-                                type="password" 
-                                placeholder="Confirm your password" 
-                                className="pl-10"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="registerAsAdmin"
-                        checked={registerAsAdmin}
-                        onChange={(e) => setRegisterAsAdmin(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-600"
-                      />
-                      <label htmlFor="registerAsAdmin" className="text-sm font-medium text-gray-700">
-                        Register as Restaurant Administrator
-                      </label>
-                    </div>
-
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
-                      disabled={registerMutation.isPending}
-                    >
-                      {registerMutation.isPending ? (
-                        <span className="flex items-center">
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Registering...
-                        </span>
-                      ) : (
-                        <span className="flex items-center">
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          Create Account
-                        </span>
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">
-                    Already have an account?{" "}
-                    <button
-                      onClick={() => setActiveTab("login")}
-                      className="text-orange-600 hover:underline"
-                    >
-                      Sign in
-                    </button>
-                  </p>
-                </div>
-              </div>
+              <Form {...registerForm}>
+                <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                  <FormField
+                    control={registerForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{tableId ? "Your Name" : (registerAsAdmin ? "Restaurant Name" : "Your Name")}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={tableId ? "Enter your name" : (registerAsAdmin ? "Enter your restaurant name" : "Enter your name")} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={registerForm.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Choose a username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={registerForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="Enter your email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={registerForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Create a password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={registerForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Confirm your password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+                    {registerMutation.isPending ? "Registering..." : (tableId ? "Register to Continue" : (registerAsAdmin ? "Register Restaurant" : "Register Account"))}
+                  </Button>
+                </form>
+              </Form>
             </TabsContent>
           </Tabs>
         </div>
       </div>
 
-      {/* Right column - Hero section */}
-      <div className="hidden md:flex flex-1 bg-gradient-to-br from-orange-500 to-amber-600 text-white">
-        <div className="flex flex-col justify-center p-12 max-w-md mx-auto">
-          <h2 className="text-3xl font-bold mb-6 font-poppins">
-            Experience the Modern Way to Dine
-          </h2>
-          <p className="text-lg mb-8">
-            Join our smart restaurant system for a seamless dining experience. Order, pay, and enjoy without the wait.
+      {/* Right column - Image and text */}
+      <div className="hidden md:flex md:w-1/2 bg-orange-100 items-center justify-center p-10">
+        <div className="max-w-md text-center">
+          <h2 className="text-3xl font-bold text-orange-800 mb-4">Welcome to The Gourmet Hub</h2>
+          <p className="text-orange-700 mb-6">
+            {tableId 
+              ? "Order your favorite dishes directly from your table. Quick, easy, and convenient."
+              : (registerAsAdmin 
+                ? "Manage your restaurant efficiently with our comprehensive dashboard. Set up tables, manage orders, and streamline your operations."
+                : "Discover a new way to dine. Browse menus, place orders, and enjoy a seamless dining experience.")}
           </p>
-          <div className="space-y-4">
-            <div className="flex items-start">
-              <div className="bg-white/20 p-2 rounded-full mr-4">
-                <QrCode className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-xl mb-1">Quick Access</h3>
-                <p>Scan QR codes at your table to instantly access the menu</p>
-              </div>
-            </div>
-            <div className="flex items-start">
-              <div className="bg-white/20 p-2 rounded-full mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-                  <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z" />
-                  <path d="m16 12-4 4-4-4" />
-                  <path d="M12 16V8" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-xl mb-1">Real-time Tracking</h3>
-                <p>Track your order status from kitchen to table in real-time</p>
-              </div>
-            </div>
-            <div className="flex items-start">
-              <div className="bg-white/20 p-2 rounded-full mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-                  <rect width="20" height="14" x="2" y="5" rx="2" />
-                  <line x1="2" x2="22" y1="10" y2="10" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-semibold text-xl mb-1">Contactless Payment</h3>
-                <p>Pay directly from your device with our secure payment system</p>
-              </div>
-            </div>
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-gray-700 italic">
+              {tableId
+                ? "Join our platform to enhance your dining experience."
+                : (registerAsAdmin 
+                  ? "Join our platform to transform your restaurant management experience."
+                  : "Join our platform to transform your dining experience.")}
+            </p>
           </div>
         </div>
       </div>
