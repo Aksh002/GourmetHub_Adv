@@ -1,12 +1,95 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { QRScanner } from "@/components/qr-scanner";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { QRCode } from "@/components/ui/qr-code";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Link } from "wouter";
 import { HandPlatter, ChefHat, QrCode, LogIn, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { QRCodeSVG } from "qrcode.react";
+
+const manualEntrySchema = z.object({
+  restaurantId: z.string().min(1, "Restaurant ID is required"),
+  tableNumber: z.string().min(1, "Table number is required"),
+});
+
+type ManualEntryFormValues = z.infer<typeof manualEntrySchema>;
 
 export default function HomePage() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [showScanner, setShowScanner] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const form = useForm<ManualEntryFormValues>({
+    resolver: zodResolver(manualEntrySchema),
+    defaultValues: {
+      restaurantId: "",
+      tableNumber: "",
+    },
+  });
+
+  const handleScan = (data: string | null) => {
+    if (data) {
+      try {
+        const url = new URL(data);
+        const pathParts = url.pathname.split('/');
+        const tableId = pathParts[2];
+        const restaurantId = pathParts[3];
+
+        if (tableId && restaurantId) {
+          // Store table context in session storage
+          sessionStorage.setItem('currentTableId', tableId);
+          sessionStorage.setItem('currentRestaurantId', restaurantId);
+          
+          // Navigate to menu page
+          navigate(`/menu/${restaurantId}`);
+        }
+      } catch (error) {
+        toast({
+          title: "Invalid QR Code",
+          description: "This QR code is not valid for table access.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleManualEntry = (data: ManualEntryFormValues) => {
+    // Store table context in session storage
+    sessionStorage.setItem('currentTableId', data.tableNumber);
+    sessionStorage.setItem('currentRestaurantId', data.restaurantId);
+    
+    // Navigate to menu page
+    navigate(`/menu/${data.restaurantId}`);
+  };
 
   return (
     <div className="min-h-screen">
@@ -85,7 +168,7 @@ export default function HomePage() {
               </p>
             </CardContent>
             <CardFooter>
-              <QRCode
+              <QRCodeSVG
                 value="/table/1"
                 size={80}
                 fgColor="#FF5722"
@@ -204,6 +287,120 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-3xl font-bold text-center mb-8">Welcome to The Gourmet Hub</h1>
+          
+          <Tabs defaultValue={isMobile ? "qr" : "manual"} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              {isMobile && (
+                <TabsTrigger value="qr">Scan QR Code</TabsTrigger>
+              )}
+              <TabsTrigger value="manual">Manual Entry</TabsTrigger>
+            </TabsList>
+
+            {isMobile && (
+              <TabsContent value="qr">
+                <Card className="p-6">
+                  <div className="text-center mb-6">
+                    <h2 className="text-xl font-semibold mb-2">Scan Table QR Code</h2>
+                    <p className="text-gray-600">
+                      Use your device's camera to scan the QR code on your table
+                    </p>
+                  </div>
+
+                  {!showScanner ? (
+                    <Button 
+                      className="w-full mb-4"
+                      onClick={() => setShowScanner(true)}
+                    >
+                      Open Camera
+                    </Button>
+                  ) : (
+                    <div className="relative aspect-square w-full max-w-md mx-auto mb-4">
+                      <QRScanner
+                        onScan={handleScan}
+                        onError={(error) => {
+                          console.error(error);
+                          toast({
+                            title: "Scanner Error",
+                            description: "There was an error with the QR scanner. Please try again or use manual entry.",
+                            variant: "destructive",
+                          });
+                        }}
+                      />
+                      <Button 
+                        className="mt-4 w-full"
+                        variant="secondary"
+                        onClick={() => setShowScanner(false)}
+                      >
+                        Close Camera
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              </TabsContent>
+            )}
+
+            <TabsContent value="manual">
+              <Card className="p-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-xl font-semibold mb-2">Manual Table Entry</h2>
+                  <p className="text-gray-600">
+                    Enter your restaurant and table details manually
+                  </p>
+                </div>
+
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleManualEntry)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="restaurantId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Restaurant ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter restaurant ID" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="tableNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Table Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter table number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button type="submit" className="w-full">
+                      Continue to Login
+                    </Button>
+                  </form>
+                </Form>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-600">
+              Restaurant owners? <Button variant="link" onClick={() => {
+                localStorage.setItem('registerAsAdmin', 'true');
+                navigate('/auth');
+              }}>Register here</Button>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
