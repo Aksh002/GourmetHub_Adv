@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import AdminLayout from "@/components/layouts/admin-layout";
-import { TableWithOrder, insertTableSchema } from "@shared/schema";
+import { TableWithOrder, TableWithConfig, FloorPlanWithTables } from "@/types/table-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QRCode } from "@/components/ui/qr-code";
@@ -71,24 +72,28 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import TableDetailsModal from "@/components/admin/table-details-modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { TableCell } from "@/components/ui/table";
 
 // Form schema for creating/editing tables
-const tableFormSchema = insertTableSchema.extend({
+const tableFormSchema = z.object({
   floorNumber: z.coerce.number().int().min(1, "Floor number must be at least 1"),
   tableNumber: z.coerce.number().int().min(1, "Table number must be at least 1"),
+  qrCodeUrl: z.string().optional(),
 });
 
 type TableFormValues = z.infer<typeof tableFormSchema>;
 
 export default function TablesPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activeFloor, setActiveFloor] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editingTable, setEditingTable] = useState<TableWithOrder | null>(null);
-  const [selectedTable, setSelectedTable] = useState<TableWithOrder | null>(null);
+  const [editingTable, setEditingTable] = useState<TableWithConfig | null>(null);
+  const [selectedTable, setSelectedTable] = useState<TableWithConfig | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [tableToDelete, setTableToDelete] = useState<TableWithOrder | null>(null);
+  const [tableToDelete, setTableToDelete] = useState<TableWithConfig | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Form setup
@@ -101,17 +106,98 @@ export default function TablesPage() {
     },
   });
 
-  // Fetch all tables
-  const { data: tables, isLoading } = useQuery<TableWithOrder[]>({
-    queryKey: ["/api/tables/with-orders"],
-    refetchInterval: 15000, // Refetch every 15 seconds
+  // Fetch all floor plans with tables
+  const { data: floorPlans = [], isLoading } = useQuery<FloorPlanWithTables[]>({
+    queryKey: ["/api/floor-plans/with-tables", { restaurantId: user?.restaurantId }],
+    queryFn: async () => {
+      if (!user?.restaurantId) {
+        throw new Error("Restaurant ID not found");
+      }
+      const response = await apiRequest("GET", `/api/floor-plans/with-tables?restaurantId=${user.restaurantId}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to fetch floor plans');
+      }
+      const data = await response.json();
+      console.log("Raw floor plans data:", data); // Debug log
+      // Transform the data to match our frontend types
+      const transformed = data.map((plan: any) => {
+        console.log("Processing floor plan:", plan); // Debug log
+        return {
+          ...plan,
+          tables: plan.tables.map((table: any) => {
+            console.log("Processing table:", table); // Debug log
+            return {
+              ...table,
+              position: {
+                x: table.config.xPosition,
+                y: table.config.yPosition,
+                width: table.config.width,
+                height: table.config.height
+              }
+            };
+          })
+        };
+      });
+      console.log("Transformed floor plans:", transformed); // Debug log
+      return transformed;
+    },
+    enabled: !!user?.restaurantId,
   });
 
   // Create table mutation
   const createTable = useMutation({
     mutationFn: async (data: TableFormValues) => {
-      const response = await apiRequest("POST", "/api/tables", data);
-      return response.json();
+      if (!user?.restaurantId) {
+        throw new Error("Restaurant ID not found");
+      }
+      
+      // First create the table
+      const tableResponse = await apiRequest("POST", "/api/tables", {
+        ...data,
+        restaurantId: user.restaurantId
+      });
+      
+      if (!tableResponse.ok) {
+        const error = await tableResponse.json();
+        throw new Error(error.message || 'Failed to create table');
+      }
+      
+      const table = await tableResponse.json();
+      
+      // Get the floor plan for this floor number
+      const floorPlanResponse = await apiRequest("GET", `/api/floor-plans?restaurantId=${user.restaurantId}&floorNumber=${data.floorNumber}`);
+      
+      if (!floorPlanResponse.ok) {
+        throw new Error('Failed to get floor plan');
+      }
+      
+      const floorPlans = await floorPlanResponse.json();
+      const floorPlan = floorPlans[0]; // Get the first floor plan for this floor
+      
+      if (!floorPlan) {
+        throw new Error('Floor plan not found');
+      }
+      
+      // Then create the table config
+      const configResponse = await apiRequest("POST", "/api/table-configs", {
+        tableId: table.id,
+        floorPlanId: floorPlan.id,
+        xPosition: 0,
+        yPosition: 0,
+        width: 100,
+        height: 100,
+        shape: "rectangle",
+        seats: 4,
+        isActive: true
+      });
+      
+      if (!configResponse.ok) {
+        const error = await configResponse.json();
+        throw new Error(error.message || 'Failed to create table configuration');
+      }
+      
+      return table;
     },
     onSuccess: () => {
       toast({
@@ -124,9 +210,9 @@ export default function TablesPage() {
         qrCodeUrl: "",
       });
       setIsAddDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/floor-plans/with-tables"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to create table",
         description: error.message,
@@ -148,49 +234,19 @@ export default function TablesPage() {
     }
   };
 
-  // Handle form submission
-  const onSubmit = (data: TableFormValues) => {
-    // Generate QR code URL if not provided
-    if (!data.qrCodeUrl) {
-      data.qrCodeUrl = `/table/${data.floorNumber}/${data.tableNumber}`;
-    }
-    
-    if (isEditMode && editingTable) {
-      // Update table functionality would go here
-      toast({
-        title: "Table updated",
-        description: "Table updates would happen here in a production app.",
-      });
-      setIsAddDialogOpen(false);
-      setIsEditMode(false);
-      setEditingTable(null);
-    } else {
-      createTable.mutate(data);
-    }
-  };
-
-  // Handle edit button click
-  const handleEdit = (table: TableWithOrder) => {
-    setIsEditMode(true);
-    setEditingTable(table);
-    form.reset({
-      floorNumber: table.floorNumber,
-      tableNumber: table.tableNumber,
-      qrCodeUrl: table.qrCodeUrl || `/table/${table.floorNumber}/${table.tableNumber}`,
-    });
-    setIsAddDialogOpen(true);
-  };
-
   // Filter tables by floor and search query
-  const filteredTables = tables?.filter(table => {
-    const matchesFloor = table.floorNumber === activeFloor;
-    const matchesSearch = searchQuery === "" || 
-      `Table ${table.tableNumber}`.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFloor && matchesSearch;
-  }) || [];
+  const filteredTables = floorPlans
+    .find(plan => plan.floorNumber === activeFloor)
+    ?.tables.filter(table => {
+      const matchesSearch = searchQuery === "" || 
+        `Table ${table.tableNumber}`.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    }) || [];
 
   // For maximum floor number
-  const maxFloor = tables ? Math.max(...tables.map(table => table.floorNumber), 1) : 1;
+  const maxFloor = floorPlans.length > 0 
+    ? Math.max(...floorPlans.map(plan => plan.floorNumber))
+    : 1;
   
   // Create floor tabs
   const floorTabs = [];
@@ -199,6 +255,85 @@ export default function TablesPage() {
       <TabsTrigger key={i} value={i.toString()}>
         Floor {i}
       </TabsTrigger>
+    );
+  }
+
+  // Handle edit button click
+  const handleEdit = (table: TableWithConfig) => {
+    setIsEditMode(true);
+    setEditingTable(table);
+    form.reset({
+      floorNumber: table.floorNumber,
+      tableNumber: table.tableNumber,
+      qrCodeUrl: table.qrCodeUrl,
+    });
+    setIsAddDialogOpen(true);
+  };
+
+  // Handle form submission
+  const onSubmit = async (data: TableFormValues) => {
+    if (isEditMode && editingTable) {
+      try {
+        const response = await apiRequest("PUT", `/api/tables/${editingTable.id}`, {
+          ...data,
+          restaurantId: user?.restaurantId
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to update table');
+        }
+        toast({
+          title: "Success",
+          description: "Table updated successfully",
+        });
+        setIsAddDialogOpen(false);
+        setIsEditMode(false);
+        setEditingTable(null);
+        queryClient.invalidateQueries({ queryKey: ["/api/floor-plans/with-tables"] });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to update table",
+          variant: "destructive",
+        });
+      }
+    } else {
+      createTable.mutate(data);
+    }
+  };
+
+  const handleGenerateQR = async (table: TableWithConfig) => {
+    try {
+      const qrCodeUrl = `/table/${table.floorId}/${table.tableNumber}`;
+      const response = await apiRequest("POST", "/api/qr", {
+        url: qrCodeUrl,
+      });
+
+      if (response) {
+        // Handle QR code generation success
+        toast({
+          title: "Success",
+          description: "QR code generated successfully",
+        });
+      }
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate QR code",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (!user?.restaurantId) {
+    return (
+      <AdminLayout>
+        <div className="container mx-auto p-4">
+          <h1 className="text-2xl font-bold mb-4">Tables</h1>
+          <p>Loading user information...</p>
+        </div>
+      </AdminLayout>
     );
   }
 
@@ -295,7 +430,11 @@ export default function TablesPage() {
                         <FormItem>
                           <FormLabel>QR Code URL (Optional)</FormLabel>
                           <FormControl>
-                            <Input {...field} />
+                            <Input
+                              {...field}
+                              placeholder="QR Code URL (optional)"
+                              value={field.value || ""}
+                            />
                           </FormControl>
                           <FormDescription>
                             Leave empty to auto-generate
