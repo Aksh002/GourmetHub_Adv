@@ -32,8 +32,8 @@ export default function TablePage() {
 
   // Query for menu items
   const { data: menuItems, isLoading: isMenuLoading } = useQuery<MenuItem[]>({
-    queryKey: [`/api/menu-items`, { category: selectedCategory }],
-    enabled: !!tableId,
+    queryKey: [`/api/menu-items`, { category: selectedCategory, restaurantId: tableData?.restaurantId }],
+    enabled: !!tableId && !!tableData?.restaurantId,
   });
 
   // Place order mutation
@@ -157,14 +157,14 @@ export default function TablePage() {
         title: "Authentication required",
         description: "Please log in to place an order.",
       });
-      navigate(`/auth?redirect=/table/${tableId}`);
+      navigate(`/?redirect=/table/${tableId}`);
     }
   }, [user, isTableLoading, tableId, navigate, toast]);
 
   return (
     <CustomerLayout 
       title="The Gourmet Hub"
-      tableInfo={tableData ? `Table #${tableData.tableNumber}, Floor ${tableData.floorNumber}` : "Loading..."}
+      tableInfo={tableData ? `Table #${tableData.tableNumber}, Floor ${tableData.floorId}` : "Loading..."}
       cartItemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
       onCartClick={() => setCartOpen(true)}
       onLoginClick={() => navigate("/auth")}
