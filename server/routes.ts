@@ -57,9 +57,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth middleware for customer routes
   const requireAuth = (req: any, res: any, next: any) => {
+    console.log("[DEBUG] requireAuth - isAuthenticated:", req.isAuthenticated());
+    console.log("[DEBUG] requireAuth - user:", req.user);
     if (!req.isAuthenticated()) {
+      console.log("[ERROR] requireAuth - Not authenticated");
       return res.status(401).json({ message: "Not authenticated" });
     }
+    console.log("[DEBUG] requireAuth - User authenticated, proceeding");
     next();
   };
 
@@ -434,18 +438,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cart operations - process a cart of items to create an order with items
   app.post("/api/order-from-cart", requireAuth, async (req, res) => {
     try {
-      const { tableId, items } = req.body;
+      console.log("[DEBUG] /api/order-from-cart - Request body:", req.body);
+      console.log("[DEBUG] /api/order-from-cart - User:", req.user);
+      
+      const { tableId, items, restaurantId: requestRestaurantId } = req.body;
+      
+      console.log("[DEBUG] /api/order-from-cart - TableId:", tableId, "RestaurantId:", requestRestaurantId, "Items count:", items?.length);
       
       // Validate the cart items
       const validatedItems = items.map((item: any) => cartItemSchema.parse(item));
       
       if (validatedItems.length === 0) {
+        console.log("[ERROR] /api/order-from-cart - Cart is empty");
         return res.status(400).json({ message: "Cart is empty" });
       }
       
+      console.log("[DEBUG] /api/order-from-cart - Validated items:", validatedItems.length);
+      
+      // Get table information - first check if tableId is a direct table ID or table number
+      let table: any = await storage.getTable(tableId);
+      console.log("[DEBUG] /api/order-from-cart - Direct table lookup result:", table);
+      
+      // If not found by ID and we have restaurantId, try to find by restaurant ID and table number combination
+      if (!table && requestRestaurantId) {
+        console.log("[DEBUG] /api/order-from-cart - Trying to find table by restaurantId and tableNumber");
+        // Get all tables for this restaurant
+        const restaurantTables = await storage.getTables(parseInt(requestRestaurantId));
+        console.log("[DEBUG] /api/order-from-cart - Restaurant tables count:", restaurantTables.length);
+        
+        // Find table by table number (assuming tableId is actually tableNumber)
+        table = restaurantTables.find(t => t.tableNumber === parseInt(tableId));
+        console.log("[DEBUG] /api/order-from-cart - Table found by tableNumber:", table);
+      }
+      
+      // Fallback: search all tables if still not found
+      if (!table) {
+        console.log("[DEBUG] /api/order-from-cart - Fallback: searching all tables");
+        const allTables = await storage.getAllTablesWithOrders();
+        console.log("[DEBUG] /api/order-from-cart - All tables count:", allTables.length);
+        
+        // Find table by table number (assuming tableId is actually tableNumber)
+        table = allTables.find(t => t.tableNumber === parseInt(tableId));
+        console.log("[DEBUG] /api/order-from-cart - Table found by tableNumber in all tables:", table);
+      }
+      
+      if (!table) {
+        console.log("[ERROR] /api/order-from-cart - Table not found:", tableId);
+        return res.status(404).json({ message: "Table not found" });
+      }
+      
       // Check if there's already an active order for this table
-      const activeOrder = await storage.getActiveOrderForTable(tableId);
+      const activeOrder = await storage.getActiveOrderForTable(table.id);
+      console.log("[DEBUG] /api/order-from-cart - Active order check:", activeOrder);
+      
       if (activeOrder) {
+        console.log("[ERROR] /api/order-from-cart - Active order exists:", activeOrder.id);
         return res.status(400).json({ 
           message: "There is already an active order for this table",
           orderId: activeOrder.id
@@ -453,19 +500,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (!req.user) {
+        console.log("[ERROR] /api/order-from-cart - User not authenticated");
         return res.status(401).json({ message: "User not authenticated" });
       }
 
-      if (!req.user.restaurantId) {
-        return res.status(400).json({ message: "Restaurant ID not found" });
-      }
+      // Use restaurantId from the table instead of user
+      const restaurantId = table.restaurantId;
+      console.log("[DEBUG] /api/order-from-cart - Using restaurantId from table:", restaurantId);
       
       // Create the order
-      const newOrder = await storage.createOrder(req.user.restaurantId, {
-        tableId,
+      console.log("[DEBUG] /api/order-from-cart - Creating order with:", {
+        restaurantId,
+        tableId: table.id, // Use the actual table ID from database
         userId: req.user.id,
         status: 'placed'
       });
+      
+      const newOrder = await storage.createOrder(restaurantId, {
+        tableId: table.id, // Use the actual table ID from database
+        userId: req.user.id,
+        status: 'placed'
+      });
+      
+      console.log("[DEBUG] /api/order-from-cart - Created order:", newOrder);
       
       // Add items to the order
       for (const item of validatedItems) {
@@ -477,7 +534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createOrderItem({
           orderId: newOrder.id,
           menuItemId: item.menuItemId,
-          restaurantId: req.user.restaurantId,
+          restaurantId: restaurantId,
           quantity: item.quantity,
           price: menuItem.price
         });
@@ -485,15 +542,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Return the complete order with items
       const completeOrder = await storage.getOrderWithItems(newOrder.id);
+      console.log("[DEBUG] /api/order-from-cart - Order created successfully:", completeOrder?.id);
       res.status(201).json(completeOrder);
     } catch (error) {
+      console.error("[ERROR] /api/order-from-cart - Error occurred:", error);
       if (error instanceof ZodError) {
+        console.error("[ERROR] /api/order-from-cart - Zod validation error:", error.errors);
         return res.status(400).json({ 
           message: "Invalid cart data", 
           errors: error.errors 
         });
       }
-      res.status(500).json({ message: "Failed to create order from cart" });
+      console.error("[ERROR] /api/order-from-cart - General error:", error);
+      res.status(500).json({ 
+        message: "Failed to create order from cart",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

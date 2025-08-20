@@ -47,10 +47,19 @@ export default function TablePage() {
         throw new Error("Your cart is empty");
       }
 
-      const res = await apiRequest("POST", "/api/order-from-cart", {
+      if (!tableData?.restaurantId) {
+        throw new Error("Restaurant information not found");
+      }
+
+      const orderData = {
         tableId: parseInt(tableId),
+        restaurantId: tableData.restaurantId,
         items: cartItems
-      });
+      };
+
+      console.log("Placing order with data:", orderData);
+
+      const res = await apiRequest("POST", "/api/order-from-cart", orderData);
       
       return await res.json();
     },
@@ -164,7 +173,7 @@ export default function TablePage() {
   return (
     <CustomerLayout 
       title="The Gourmet Hub"
-      tableInfo={tableData ? `Table #${tableData.tableNumber}, Floor ${tableData.floorId}` : "Loading..."}
+      tableInfo={tableData ? `Table #${tableData.tableNumber}, Floor ${tableData.floorNumber}` : "Loading..."}
       cartItemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
       onCartClick={() => setCartOpen(true)}
       onLoginClick={() => navigate("/auth")}

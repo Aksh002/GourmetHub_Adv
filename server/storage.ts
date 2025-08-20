@@ -172,7 +172,7 @@ export class PostgresStorage implements IStorage {
       .leftJoin(tableConfigs, eq(tables.id, tableConfigs.tableId))
       .leftJoin(orders, and(
         eq(tables.id, orders.tableId),
-        eq(orders.status, 'active')
+        inArray(orders.status, ['placed', 'under_process', 'served', 'completed'])
       ))
       .where(eq(tables.restaurantId, restaurantId));
 
@@ -222,7 +222,7 @@ export class PostgresStorage implements IStorage {
       .leftJoin(tableConfigs, eq(tables.id, tableConfigs.tableId))
       .leftJoin(orders, and(
         eq(tables.id, orders.tableId),
-        eq(orders.status, 'active')
+        inArray(orders.status, ['placed', 'under_process', 'served', 'completed'])
       ))
       .where(and(
         eq(tables.restaurantId, restaurantId),

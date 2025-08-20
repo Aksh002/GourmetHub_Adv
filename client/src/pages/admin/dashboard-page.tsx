@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RecoilRoot } from "recoil";
 import AdminLayout from "@/components/layouts/admin-layout";
-import TableGrid from "@/components/admin/table-grid";
+import DashboardTableGrid from "@/components/admin/dashboard/table-grid";
 import OrderQueue from "@/components/admin/order-queue";
 import TableDetailsModal from "@/components/admin/table-details-modal";
 import { TableWithOrder, FloorPlanWithTables } from "@/types/table-types";
@@ -349,7 +349,7 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               ) : currentFloorTables.length > 0 ? (
-                <TableGrid
+                <DashboardTableGrid
                   tables={currentFloorTables}
                   onTableClick={(table) => setSelectedTable(table)}
                 />
@@ -423,6 +423,15 @@ export default function DashboardPage() {
               onClose={() => setSelectedTable(null)}
             />
           )}
+          
+          {/* Restaurant ID Display */}
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <div className="text-center">
+              <p className="text-xs text-gray-500">
+                Restaurant ID: <span className="font-mono text-gray-700">{user?.restaurantId || 'Not available'}</span>
+              </p>
+            </div>
+          </div>
         </div>
       </RecoilRoot>
     </AdminLayout>

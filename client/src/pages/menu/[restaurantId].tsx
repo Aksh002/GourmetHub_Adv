@@ -83,11 +83,13 @@ export default function MenuPage() {
         throw new Error("Your cart is empty");
       }
 
-      const res = await apiRequest("POST", "/api/orders", {
+      const res = await apiRequest("POST", "/api/order-from-cart", {
         tableId: parseInt(tableId!),
         restaurantId: parseInt(restaurantId!),
         items: cartItems.map(item => ({
           menuItemId: item.menuItemId,
+          name: item.name,
+          price: item.price,
           quantity: item.quantity
         }))
       });
